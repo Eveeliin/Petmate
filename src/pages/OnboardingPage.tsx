@@ -11,7 +11,7 @@ import {
 } from '../utils/auth';
 
 const logo = '/logo_def_pm.png';
-const nivelesTamano = ['Pequeno', 'Mediano', 'Grande', 'Muy grande'] as const;
+const nivelesTamano = ['Pequeño', 'Mediano', 'Grande', 'Muy grande'] as const;
 
 function leerArchivoComoDataUrl(archivo: File) {
   return new Promise<string>((resolve, reject) => {

@@ -15,7 +15,6 @@ export function PaginaInicio() {
       <main>
         <HeroSection />
         <MapSection />
-        <EventsSection />
         <CommunitySection />
         <FeaturesSection />
         <TestimonialsSection />

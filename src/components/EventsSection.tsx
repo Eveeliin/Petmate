@@ -2,7 +2,7 @@ import React from 'react';
 import { useState } from 'react';
 import { Calendar, Clock, Heart, MapPin, Users } from 'lucide-react';
 import { ImageWithFallback } from './ImageWithFallback';
-
+//PROXIMOS EVENTOS
 const events = [
   {
     id: 1,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Facebook, Instagram, Mail, MapPin, Phone, Twitter } from 'lucide-react';
-
+//LOGO PARA EL FOOTER
 const logo = '/logo_def_pm.png';
 
 export function Footer() {

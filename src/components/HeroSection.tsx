@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, Calendar, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
+//LOGO PARA EL HERO
 const logo = '/logo_def_pm.png';
 
 export function HeroSection() {
@@ -35,22 +35,6 @@ export function HeroSection() {
               La mejor plataforma para encontrar establecimientos, alojamientos y eventos pet-friendly en Madrid. Mapa
               interactivo, filtros especializados y comunidad activa.
             </p>
-
-            <div className="flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
-              <a
-                href="#mapa"
-                className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#1a9b8e] to-[#7ab851] px-8 py-4 font-bold text-white transition-all hover:scale-105 hover:shadow-xl"
-              >
-                Explorar Mapa
-                <ArrowRight size={20} />
-              </a>
-              <Link
-                to="/login?mode=register"
-                className="rounded-full border-2 border-gray-200 bg-white px-8 py-4 font-bold text-gray-700 transition-all hover:border-[#ff8c42] hover:text-[#ff8c42] hover:shadow-lg"
-              >
-                Crear Quedada
-              </Link>
-            </div>
 
             <div className="mx-auto mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-gray-100 pt-8 lg:mx-0">
               <div className="text-center lg:text-left">

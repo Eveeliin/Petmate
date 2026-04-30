@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Heart, MapPin, MessageCircle, UserPlus, Users } from 'lucide-react';
-
+//PROXIMAS eventoS
 const meetups = [
   {
     id: 1,
@@ -49,7 +49,7 @@ export function CommunitySection() {
             </span>
           </h2>
           <p className="mx-auto max-w-2xl text-xl text-gray-600">
-            Organiza quedadas, paseos grupales y conecta con otros amantes de las mascotas en Madrid.
+            Organiza eventos, paseos grupales y conecta con otros amantes de las mascotas en Madrid.
           </p>
         </div>
 
@@ -66,7 +66,7 @@ export function CommunitySection() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff8c42] to-[#ff6b6b]">
               <Calendar size={32} className="text-white" />
             </div>
-            <h3 className="mb-2 text-xl text-gray-900">Organiza Quedadas</h3>
+            <h3 className="mb-2 text-xl text-gray-900">Organiza eventos</h3>
             <p className="text-gray-600">Crea tus propios eventos y paseos grupales personalizados.</p>
           </div>
 
@@ -79,11 +79,11 @@ export function CommunitySection() {
           </div>
         </div>
 
-        <div className="rounded-3xl bg-gradient-to-br from-[#f8f9fa] to-white p-8 md:p-12">
+        <div id="eventos" className="rounded-3xl bg-gradient-to-br from-[#f8f9fa] to-white p-8 md:p-12">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <h3 className="text-3xl text-gray-900">Proximas Quedadas</h3>
+            <h3 className="text-3xl text-gray-900">Proximos eventos</h3>
             <button className="rounded-xl bg-gradient-to-r from-[#ff8c42] to-[#ff6b6b] px-6 py-3 text-white transition-shadow hover:shadow-lg">
-              Crear Quedada
+              Crear evento
             </button>
           </div>
 
@@ -154,9 +154,9 @@ export function CommunitySection() {
           </div>
 
           <div className="mt-12 text-center">
-            <p className="mb-4 text-gray-600">¿No encuentras una quedada que te guste?</p>
+            <p className="mb-4 text-gray-600">¿No encuentras una evento que te guste?</p>
             <button className="rounded-full border-2 border-gray-200 bg-white px-8 py-4 text-gray-700 transition-all hover:border-[#ff8c42] hover:shadow-lg">
-              Ver Todas las Quedadas
+              Ver Todos los Eventos
             </button>
           </div>
         </div>

@@ -2,23 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { LogIn, Menu, UserRound, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { limpiarSesion, obtenerSesion, suscribirCambioAutenticacion } from '../utils/auth';
-
+//LOGO PARA EL HEADER
 const logo = '/logo_def_pm.png';
 
 export function Header() {
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [estaAutenticado, setEstaAutenticado] = useState(Boolean(obtenerSesion()));
+  const [estaAutenticado, setEstaAutenticado] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const sincronizarAutenticacion = () => setEstaAutenticado(Boolean(obtenerSesion()));
-    sincronizarAutenticacion();
+    const sincronizarAutenticacion = async () => {
+      const sesion = await obtenerSesion();
+      setEstaAutenticado(Boolean(sesion));
+    };
+
+    void sincronizarAutenticacion();
     const cancelarSuscripcion = suscribirCambioAutenticacion(sincronizarAutenticacion);
     return cancelarSuscripcion;
   }, []);
 
-  const cerrarSesion = () => {
-    limpiarSesion();
+  const cerrarSesion = async () => {
+    await limpiarSesion();
     setMenuAbierto(false);
     navigate('/');
   };

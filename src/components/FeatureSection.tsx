@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Filter, MapPin, Smartphone, Star, Users } from 'lucide-react';
-
+//CARACTERISTICAS PRINCIPALES ¿Por qué elegir PetMate?
 const features = [
   {
     icon: MapPin,
