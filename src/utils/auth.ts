@@ -1,280 +1,274 @@
-export type SesionAutenticacion = {
-  email: string;
-  mode: 'login' | 'register';
-  loggedAt: string;
-};
+import { supabase } from '../supabaseClient';
 
 export type PerfilMascota = {
   id: string;
-  name: string;
-  type: string;
-  breed: string;
-  age: string;
-  size: string;
-  energy: string;
-  description: string;
+  nombre: string;
+  raza: string;
+  peso?: number | null;
+  tamano: string;
+  esSociable: boolean;
+  foto?: string | null;
 };
 
 export type LugarFavorito = {
   id: string;
-  name: string;
-  category: string;
-  area: string;
-  petRule: string;
+  nombre: string;
+  direccion: string;
+  admitePerrosGrandes: boolean;
+  accesoInterior: boolean;
 };
 
 export type EventoCreado = {
   id: string;
-  title: string;
-  description: string;
-  location: string;
-  time: string;
-  attendees: number;
-  status: string;
+  nombre: string;
+  fechaHora: string;
+  direccion: string;
 };
 
 export type PerfilUsuario = {
-  fullName: string;
+  nombre: string;
   email: string;
-  district: string;
-  bio: string;
-  joinedLabel: string;
-  pets: PerfilMascota[];
-  favorites: LugarFavorito[];
-  createdEvents: EventoCreado[];
+  avatar?: string | null;
+  mascotas: PerfilMascota[];
+  favoritos: LugarFavorito[];
+  eventos: EventoCreado[];
 };
 
-type EventoCreadoGuardado = Partial<EventoCreado> & {
-  date?: string;
+type DatosPerfilBase = {
+  idUsuario: string;
+  email: string;
+  nombre: string;
+  avatar?: string | null;
 };
 
-type PerfilMascotaGuardado = Partial<PerfilMascota>;
-
-const CLAVE_SESION = 'petmate-auth';
-const CLAVE_PERFIL = 'petmate-profile';
-const EVENTO_AUTENTICACION = 'petmate-auth-change';
-
-export function obtenerSesion(): SesionAutenticacion | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const sesionSinProcesar = window.localStorage.getItem(CLAVE_SESION);
-  if (!sesionSinProcesar) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(sesionSinProcesar) as SesionAutenticacion;
-  } catch {
-    return null;
-  }
+export async function obtenerSesion() {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
 }
 
-export function guardarSesion(sesion: SesionAutenticacion) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
-  window.dispatchEvent(new Event(EVENTO_AUTENTICACION));
+export async function obtenerUsuarioActual() {
+  const { data } = await supabase.auth.getUser();
+  return data.user;
 }
 
-export function limpiarSesion() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.removeItem(CLAVE_SESION);
-  window.dispatchEvent(new Event(EVENTO_AUTENTICACION));
+export async function limpiarSesion() {
+  await supabase.auth.signOut();
 }
 
 export function suscribirCambioAutenticacion(callback: () => void) {
-  if (typeof window === 'undefined') {
-    return () => undefined;
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(() => {
+    callback();
+  });
+
+  return () => subscription.unsubscribe();
+}
+
+export async function asegurarPerfilBase({
+  idUsuario,
+  email,
+  nombre,
+  avatar = null,
+}: DatosPerfilBase) {
+  const perfilBase = {
+    id: idUsuario,
+    nombre: nombre.trim(),
+    email: email.trim(),
+    avatar,
+  };
+
+  const { data: perfilExistente, error: consultaError } = await supabase
+    .from('Perfil')
+    .select('id')
+    .eq('id', idUsuario)
+    .maybeSingle();
+
+  if (consultaError) {
+    throw new Error(`Error consultando perfil base: ${consultaError.message}`);
   }
 
-  window.addEventListener(EVENTO_AUTENTICACION, callback);
-  return () => window.removeEventListener(EVENTO_AUTENTICACION, callback);
-}
-
-function normalizarEventoCreado(evento: EventoCreadoGuardado, indice: number): EventoCreado {
-  const horaHeradada =
-    typeof evento.date === 'string' && evento.date.includes('·')
-      ? evento.date.split('·').pop()?.trim() ?? ''
-      : '';
-
-  return {
-    id: evento.id ?? `event-${indice}`,
-    title: evento.title ?? '',
-    description: evento.description ?? '',
-    location: evento.location ?? '',
-    time: evento.time ?? horaHeradada,
-    attendees: evento.attendees ?? 0,
-    status: evento.status ?? 'Borrador',
-  };
-}
-
-function normalizarPerfilMascota(mascota: PerfilMascotaGuardado, indice: number): PerfilMascota {
-  return {
-    id: mascota.id ?? `pet-${indice}`,
-    name: mascota.name ?? '',
-    type: mascota.type ?? '',
-    breed: mascota.breed ?? '',
-    age: mascota.age ?? '',
-    size: mascota.size ?? '',
-    energy: mascota.energy ?? '',
-    description: mascota.description ?? '',
-  };
-}
-
-function construirPerfilPorDefecto(email: string): PerfilUsuario {
-  const nombreDesdeEmail = email.split('@')[0].replace(/[._-]/g, ' ');
-  const nombreCapitalizado = nombreDesdeEmail.replace(/\b\w/g, (letra) => letra.toUpperCase());
-
-  return {
-    fullName: nombreCapitalizado || 'Usuario PetMate',
-    email,
-    district: 'Madrid Centro',
-    bio: 'Amante de los planes pet-friendly, los paseos largos y los sitios donde las mascotas son bienvenidas.',
-    joinedLabel: 'Miembro desde 2026',
-    pets: [
-      {
-        id: 'pet-1',
-        name: 'Milo',
-        type: 'Perro',
-        breed: 'Mestizo',
-        age: '3 años',
-        size: 'Mediano',
-        energy: 'Alta',
-        description: 'Le encanta correr, jugar con otros perros y salir a pasear por zonas verdes amplias.',
-      },
-      {
-        id: 'pet-2',
-        name: 'Nala',
-        type: 'Gata',
-        breed: 'Europea',
-        age: '2 años',
-        size: 'Pequeño',
-        energy: 'Media',
-        description: 'Es tranquila, curiosa y disfruta observando todo desde lugares altos.',
-      },
-    ],
-    favorites: [
-      {
-        id: 'fav-1',
-        name: 'El Perro y la Galleta',
-        category: 'Cafeteria',
-        area: 'Retiro',
-        petRule: 'Acceso interior y terraza',
-      },
-      {
-        id: 'fav-2',
-        name: 'Parque Juan Carlos I',
-        category: 'Zona verde',
-        area: 'Barajas',
-        petRule: 'Ideal para paseos largos',
-      },
-      {
-        id: 'fav-3',
-        name: 'Hotel Canino Sol y Patas',
-        category: 'Alojamiento',
-        area: 'Chamartin',
-        petRule: 'Admite mascotas pequeñas y medianas',
-      },
-    ],
-    createdEvents: [
-      {
-        id: 'event-1',
-        title: 'Paseo grupal por Madrid Rio',
-        description: 'Quedada para pasear junto al rio, conocer a otros dueños y dejar que las mascotas socialicen.',
-        location: 'Madrid Rio',
-        time: '10:30',
-        attendees: 9,
-        status: 'Abierto',
-      },
-      {
-        id: 'event-2',
-        title: 'Brunch pet-friendly en Malasaña',
-        description: 'Encuentro relajado para compartir mesa, charlar y descubrir un local pet-friendly.',
-        location: 'Malasaña',
-        time: '12:00',
-        attendees: 6,
-        status: 'Confirmado',
-      },
-    ],
-  };
-}
-
-export function crearPerfilOnboarding(email: string): PerfilUsuario {
-  return {
-    fullName: '',
-    email,
-    district: '',
-    bio: '',
-    joinedLabel: 'Miembro desde 2026',
-    pets: [
-      {
-        id: `pet-${Date.now()}`,
-        name: '',
-        type: '',
-        breed: '',
-        age: '',
-        size: '',
-        energy: '',
-        description: '',
-      },
-    ],
-    favorites: [],
-    createdEvents: [],
-  };
-}
-
-export function obtenerPerfilUsuario(sesion: SesionAutenticacion | null): PerfilUsuario | null {
-  if (typeof window === 'undefined' || !sesion) {
-    return null;
-  }
-
-  const perfilSinProcesar = window.localStorage.getItem(CLAVE_PERFIL);
-  if (!perfilSinProcesar) {
-    const perfil = construirPerfilPorDefecto(sesion.email);
-    guardarPerfilUsuario(perfil);
-    return perfil;
-  }
-
-  try {
-    const perfilGuardado = JSON.parse(perfilSinProcesar) as Omit<PerfilUsuario, 'pets' | 'createdEvents'> & {
-      pets?: PerfilMascotaGuardado[];
-      createdEvents?: EventoCreadoGuardado[];
-    };
-
-    return {
-      ...perfilGuardado,
-      email: sesion.email,
-      pets: (perfilGuardado.pets ?? []).map((mascota, indice) => normalizarPerfilMascota(mascota, indice)),
-      createdEvents: (perfilGuardado.createdEvents ?? []).map((evento, indice) =>
-        normalizarEventoCreado(evento, indice),
-      ),
-    };
-  } catch {
-    const perfil = construirPerfilPorDefecto(sesion.email);
-    guardarPerfilUsuario(perfil);
-    return perfil;
-  }
-}
-
-export function guardarPerfilUsuario(perfil: PerfilUsuario) {
-  if (typeof window === 'undefined') {
+  if (perfilExistente) {
+    const { error: updateError } = await supabase.from('Perfil').update(perfilBase).eq('id', idUsuario);
+    if (updateError) {
+      throw new Error(`Error actualizando perfil base: ${updateError.message}`);
+    }
     return;
   }
 
-  window.localStorage.setItem(CLAVE_PERFIL, JSON.stringify(perfil));
+  const { error: insertError } = await supabase.from('Perfil').insert(perfilBase);
+  if (insertError) {
+    throw new Error(`Error creando perfil base: ${insertError.message}`);
+  }
 }
 
-export function limpiarPerfilUsuario() {
-  if (typeof window === 'undefined') {
-    return;
+export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) return null;
+
+  const { data: perfil, error: perfilError } = await supabase
+    .from('Perfil')
+    .select('*')
+    .eq('id', session.user.id)
+    .maybeSingle();
+
+  if (perfilError) {
+    throw new Error(`Error obteniendo perfil: ${perfilError.message}`);
   }
 
-  window.localStorage.removeItem(CLAVE_PERFIL);
+  if (!perfil) return null;
+
+  const { data: mascotas, error: mascotasError } = await supabase
+    .from('Mascotas')
+    .select('*')
+    .eq('dueno_id', session.user.id);
+
+  if (mascotasError) {
+    throw new Error(`Error obteniendo mascotas: ${mascotasError.message}`);
+  }
+
+  const { data: favoritos, error: favoritosError } = await supabase
+    .from('Favoritos')
+    .select('id, Lugares(nombre, direccion, admision_perros_grandes, acceso_interior)')
+    .eq('perfil_id', session.user.id);
+
+  if (favoritosError) {
+    throw new Error(`Error obteniendo favoritos: ${favoritosError.message}`);
+  }
+
+  const { data: eventos, error: eventosError } = await supabase
+    .from('Eventos')
+    .select('*')
+    .eq('creador_id', session.user.id);
+
+  if (eventosError) {
+    throw new Error(`Error obteniendo eventos: ${eventosError.message}`);
+  }
+
+  return {
+    nombre: perfil.nombre ?? '',
+    email: perfil.email ?? '',
+    avatar: perfil.avatar ?? null,
+    mascotas: (mascotas ?? []).map((mascota) => ({
+      id: mascota.id,
+      nombre: mascota.nombre ?? '',
+      raza: mascota.raza ?? '',
+      peso: mascota.peso ?? null,
+      tamano: mascota.tamano ?? '',
+      esSociable: mascota.sociabilidad ?? false,
+      foto: mascota.foto ?? null,
+    })),
+    favoritos: (favoritos ?? []).map((favorito) => {
+      const lugar = Array.isArray(favorito.Lugares) ? favorito.Lugares[0] : favorito.Lugares;
+
+      return {
+        id: String(favorito.id),
+        nombre: lugar?.nombre ?? '',
+        direccion: lugar?.direccion ?? '',
+        admitePerrosGrandes: lugar?.admision_perros_grandes ?? false,
+        accesoInterior: lugar?.acceso_interior ?? false,
+      };
+    }),
+    eventos: (eventos ?? []).map((evento) => ({
+      id: evento.id,
+      nombre: evento.nombre ?? '',
+      fechaHora: evento.fecha_hora ?? '',
+      direccion: evento.direccion ?? '',
+    })),
+  };
+}
+
+export function esPerfilIncompleto(perfil: PerfilUsuario | null) {
+  return !perfil || !perfil.nombre || !perfil.nombre.trim();
+}
+
+export async function guardarMascotas(mascotas: PerfilMascota[], idDueno: string) {
+  const mascotasValidas = mascotas.filter((mascota) => mascota.nombre.trim());
+
+  const idsExistentes = mascotasValidas
+    .filter((mascota) => !mascota.id.startsWith('pet-'))
+    .map((mascota) => mascota.id);
+
+  const { data: mascotasGuardadas, error: consultaError } = await supabase
+    .from('Mascotas')
+    .select('id')
+    .eq('dueno_id', idDueno);
+
+  if (consultaError) {
+    throw new Error(`Error consultando mascotas guardadas: ${consultaError.message}`);
+  }
+
+  const idsParaEliminar = (mascotasGuardadas ?? [])
+    .map((mascota) => mascota.id)
+    .filter((id) => !idsExistentes.includes(id));
+
+  if (idsParaEliminar.length > 0) {
+    const { error: borradoError } = await supabase
+      .from('Mascotas')
+      .delete()
+      .in('id', idsParaEliminar)
+      .eq('dueno_id', idDueno);
+
+    if (borradoError) {
+      throw new Error(`Error eliminando mascotas: ${borradoError.message}`);
+    }
+  }
+
+  for (const mascota of mascotasValidas) {
+    const esNuevaMascota = mascota.id.startsWith('pet-');
+    const idMascota = esNuevaMascota ? crypto.randomUUID() : mascota.id;
+    const mascotaParaGuardar = {
+      id: idMascota,
+      dueno_id: idDueno,
+      nombre: mascota.nombre.trim(),
+      raza: mascota.raza.trim(),
+      peso: mascota.peso ?? null,
+      tamano: mascota.tamano.trim(),
+      sociabilidad: mascota.esSociable,
+      foto: mascota.foto?.trim() ? mascota.foto.trim() : null,
+    };
+
+    if (esNuevaMascota) {
+      const { error } = await supabase.from('Mascotas').insert(mascotaParaGuardar);
+      if (error) {
+        throw new Error(`Error guardando mascota ${mascota.nombre}: ${error.message}`);
+      }
+    } else {
+      const { error } = await supabase
+        .from('Mascotas')
+        .update(mascotaParaGuardar)
+        .eq('id', mascota.id)
+        .eq('dueno_id', idDueno);
+
+      if (error) {
+        throw new Error(`Error actualizando mascota ${mascota.nombre}: ${error.message}`);
+      }
+    }
+  }
+}
+
+export async function guardarPerfilUsuario(perfil: PerfilUsuario) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new Error('No hay sesion activa');
+  }
+
+  await asegurarPerfilBase({
+    idUsuario: session.user.id,
+    email: perfil.email,
+    nombre: perfil.nombre,
+    avatar: perfil.avatar ?? null,
+  });
+
+  await guardarMascotas(perfil.mascotas, session.user.id);
+}
+
+export async function limpiarPerfilUsuario() {
+  await supabase.auth.signOut();
 }

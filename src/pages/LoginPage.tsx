@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, PawPrint } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, PawPrint, UserRound } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { crearPerfilOnboarding, guardarPerfilUsuario, guardarSesion } from '../utils/auth';
+import { supabase } from '../supabaseClient';
+import { asegurarPerfilBase, esPerfilIncompleto, obtenerPerfilUsuario } from '../utils/auth';
 
 const logo = '/logo_def_pm.png';
 const proveedoresSociales = ['Google', 'GitHub', 'Apple'];
@@ -12,7 +13,7 @@ function establecerMensajeValidacionEnEspanol(event: React.InvalidEvent<HTMLInpu
   if (input.validity.valueMissing) {
     input.setCustomValidity('Por favor, completa este campo.');
   } else if (input.validity.typeMismatch && input.type === 'email') {
-    input.setCustomValidity('Introduce un correo electrónico válido.');
+    input.setCustomValidity('Introduce un correo electronico valido.');
   } else if (input.validity.tooShort) {
     input.setCustomValidity(`Introduce al menos ${input.minLength} caracteres.`);
   } else {
@@ -34,6 +35,7 @@ export function PaginaAcceso() {
 
   const [modo, setModo] = useState<'login' | 'register'>(modoInicial);
   const [correo, setCorreo] = useState('');
+  const [nombre, setNombre] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [confirmacionContrasena, setConfirmacionContrasena] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
@@ -53,44 +55,109 @@ export function PaginaAcceso() {
     setParametrosBusqueda(siguienteModo === 'register' ? { mode: 'register' } : {});
   };
 
+  const traducirErrorAutenticacion = (mensaje: string) => {
+    const mensajeNormalizado = mensaje.toLowerCase();
+
+    if (mensajeNormalizado.includes('invalid login credentials')) {
+      return 'Correo o contrasena incorrectos. Si acabas de registrarte, revisa tambien si debes confirmar el correo antes de iniciar sesion.';
+    }
+
+    if (mensajeNormalizado.includes('email not confirmed')) {
+      return 'Tu correo todavia no esta confirmado. Revisa tu bandeja de entrada antes de iniciar sesion.';
+    }
+
+    if (mensajeNormalizado.includes('user already registered')) {
+      return 'Ese correo ya esta registrado. Prueba a iniciar sesion.';
+    }
+
+    return mensaje;
+  };
+
   const manejarEnvio = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
     setExito('');
+    setEstaEnviando(true);
+    const correoLimpio = correo.trim();
+    const nombreLimpio = nombre.trim();
+
+    if (modo === 'register' && !nombreLimpio) {
+      setError('El nombre es obligatorio.');
+      setEstaEnviando(false);
+      return;
+    }
 
     if (modo === 'register' && contrasena !== confirmacionContrasena) {
-      setError('Las contraseñas no coinciden.');
+      setError('Las contrasenas no coinciden.');
+      setEstaEnviando(false);
       return;
     }
-
-    if (contrasena.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
-
-    setEstaEnviando(true);
 
     try {
-      const sesion = {
-        email: correo,
-        mode: modo,
-        loggedAt: new Date().toISOString(),
-      };
-
-      guardarSesion(sesion);
-
       if (modo === 'register') {
-        guardarPerfilUsuario(crearPerfilOnboarding(correo));
+        const { data, error: errorRegistro } = await supabase.auth.signUp({
+          email: correoLimpio,
+          password: contrasena,
+          options: {
+            data: {
+              nombre: nombreLimpio,
+            },
+          },
+        });
+
+        if (errorRegistro) throw errorRegistro;
+
+        const idUsuario = data.user?.id;
+        if (!idUsuario) {
+          throw new Error('No se pudo obtener el usuario');
+        }
+
+        const esCorreoYaRegistrado = data.user?.identities && Array.isArray(data.user.identities) && data.user.identities.length === 0;
+        if (esCorreoYaRegistrado) {
+          setError('Ese correo ya esta registrado. Inicia sesion o recupera la contrasena de esa cuenta.');
+          setModo('login');
+          setParametrosBusqueda({});
+          return;
+        }
+
+        if (data.session) {
+          await asegurarPerfilBase({
+            idUsuario,
+            nombre: nombreLimpio,
+            email: correoLimpio,
+            avatar: null,
+          });
+          setExito('Cuenta creada correctamente. Vamos a completar tu perfil...');
+          await new Promise((resolve) => setTimeout(resolve, 900));
+          navigate('/onboarding');
+        } else {
+          setExito(
+            'Cuenta creada, pero Supabase no ha iniciado sesion automaticamente. Revisa tu correo y confirma la cuenta antes de iniciar sesion.',
+          );
+          setModo('login');
+          setParametrosBusqueda({});
+        }
+      } else {
+        const { error: errorLogin } = await supabase.auth.signInWithPassword({
+          email: correoLimpio,
+          password: contrasena,
+        });
+
+        if (errorLogin) throw errorLogin;
+
+        const perfil = await obtenerPerfilUsuario();
+        setExito('Inicio de sesion completado correctamente. Redirigiendo...');
+        await new Promise((resolve) => setTimeout(resolve, 900));
+
+        if (esPerfilIncompleto(perfil)) {
+          navigate('/onboarding');
+        } else {
+          navigate('/perfil');
+        }
       }
-
-      setExito(
-        modo === 'login'
-          ? 'Inicio de sesión completado correctamente. Redirigiendo a tu perfil...'
-          : 'Cuenta creada correctamente. Vamos a completar tu perfil...',
-      );
-
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      navigate(modo === 'login' ? '/perfil' : '/onboarding');
+    } catch (errorDesconocido: unknown) {
+      const mensaje = errorDesconocido instanceof Error ? errorDesconocido.message : 'Ha ocurrido un error.';
+      setError(traducirErrorAutenticacion(mensaje));
     } finally {
       setEstaEnviando(false);
     }
@@ -125,24 +192,9 @@ export function PaginaAcceso() {
               </h1>
 
               <p className="mt-5 text-lg leading-relaxed text-gray-600">
-                Guarda tus favoritos, sigue tus quedadas y prepara nuevos planes desde una experiencia clara, rápida y
-                pensada para acompañarte en cada paso.
+                Guarda tus favoritos, sigue tus quedadas y prepara nuevos planes desde una experiencia clara, rapida y
+                pensada para acompanarte en cada paso.
               </p>
-
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-3xl bg-white/80 p-5 shadow-lg ring-1 ring-white">
-                  <div className="text-2xl font-bold text-[#1a9b8e]">+150</div>
-                  <p className="mt-2 text-sm text-gray-600">Eventos pet-friendly listos para descubrir.</p>
-                </div>
-                <div className="rounded-3xl bg-white/80 p-5 shadow-lg ring-1 ring-white">
-                  <div className="text-2xl font-bold text-[#ff8c42]">2.5K</div>
-                  <p className="mt-2 text-sm text-gray-600">Mascotas activas dentro de la comunidad.</p>
-                </div>
-                <div className="rounded-3xl bg-white/80 p-5 shadow-lg ring-1 ring-white">
-                  <div className="text-2xl font-bold text-[#7ab851]">Madrid</div>
-                  <p className="mt-2 text-sm text-gray-600">Lugares, quedadas y rutas en una sola plataforma.</p>
-                </div>
-              </div>
             </div>
           </section>
 
@@ -154,7 +206,7 @@ export function PaginaAcceso() {
                 </Link>
                 <h2 className="mt-4 text-3xl font-bold text-gray-900">Bienvenido a PetMate</h2>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                  Inicia sesión o crea tu cuenta para guardar favoritos, organizar quedadas y seguir tus planes.
+                  Inicia sesion o crea tu cuenta para guardar favoritos, organizar quedadas y seguir tus planes.
                 </p>
               </div>
 
@@ -166,7 +218,7 @@ export function PaginaAcceso() {
                     modo === 'login' ? 'bg-[#1a9b8e] text-white shadow-sm' : 'text-gray-600 hover:text-[#1a9b8e]'
                   }`}
                 >
-                  Iniciar sesión
+                  Iniciar sesion
                 </button>
                 <button
                   type="button"
@@ -180,8 +232,25 @@ export function PaginaAcceso() {
               </div>
 
               <form onSubmit={manejarEnvio} className="mt-6 space-y-4">
+                {modo === 'register' && (
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-gray-700">Nombre</span>
+                    <div className="flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                      <UserRound size={18} className="mr-3 text-gray-400" />
+                      <input
+                        type="text"
+                        value={nombre}
+                        onChange={(event) => setNombre(event.target.value)}
+                        placeholder="Tu nombre"
+                        className="w-full border-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
+                        required
+                      />
+                    </div>
+                  </label>
+                )}
+
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700">Correo electrónico</span>
+                  <span className="mb-2 block text-sm font-medium text-gray-700">Correo electronico</span>
                   <div className="flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus-within:border-[#1a9b8e] focus-within:ring-2 focus-within:ring-[#1a9b8e]/15">
                     <Mail size={18} className="mr-3 text-gray-400" />
                     <input
@@ -198,7 +267,7 @@ export function PaginaAcceso() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700">Contraseña</span>
+                  <span className="mb-2 block text-sm font-medium text-gray-700">Contrasena</span>
                   <div className="flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus-within:border-[#1a9b8e] focus-within:ring-2 focus-within:ring-[#1a9b8e]/15">
                     <Lock size={18} className="mr-3 text-gray-400" />
                     <input
@@ -207,7 +276,7 @@ export function PaginaAcceso() {
                       onChange={(event) => setContrasena(event.target.value)}
                       onInput={limpiarMensajeValidacion}
                       onInvalid={establecerMensajeValidacionEnEspanol}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Minimo 6 caracteres"
                       className="w-full border-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
                       minLength={6}
                       required
@@ -216,7 +285,7 @@ export function PaginaAcceso() {
                       type="button"
                       onClick={() => setMostrarContrasena((valorActual) => !valorActual)}
                       className="ml-3 text-gray-400 transition hover:text-[#1a9b8e]"
-                      aria-label={mostrarContrasena ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      aria-label={mostrarContrasena ? 'Ocultar contrasena' : 'Mostrar contrasena'}
                     >
                       {mostrarContrasena ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -225,7 +294,7 @@ export function PaginaAcceso() {
 
                 {modo === 'register' && (
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-gray-700">Confirmar contraseña</span>
+                    <span className="mb-2 block text-sm font-medium text-gray-700">Confirmar contrasena</span>
                     <div className="flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus-within:border-[#ff8c42] focus-within:ring-2 focus-within:ring-[#ff8c42]/15">
                       <Lock size={18} className="mr-3 text-gray-400" />
                       <input
@@ -234,7 +303,7 @@ export function PaginaAcceso() {
                         onChange={(event) => setConfirmacionContrasena(event.target.value)}
                         onInput={limpiarMensajeValidacion}
                         onInvalid={establecerMensajeValidacionEnEspanol}
-                        placeholder="Repite tu contraseña"
+                        placeholder="Repite tu contrasena"
                         className="w-full border-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
                         minLength={6}
                         required
@@ -243,7 +312,7 @@ export function PaginaAcceso() {
                         type="button"
                         onClick={() => setMostrarConfirmacionContrasena((valorActual) => !valorActual)}
                         className="ml-3 text-gray-400 transition hover:text-[#ff8c42]"
-                        aria-label={mostrarConfirmacionContrasena ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        aria-label={mostrarConfirmacionContrasena ? 'Ocultar contrasena' : 'Mostrar contrasena'}
                       >
                         {mostrarConfirmacionContrasena ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -269,7 +338,7 @@ export function PaginaAcceso() {
 
               <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[0.25em] text-gray-400">
                 <div className="h-px flex-1 bg-gray-200" />
-                <span>o continúa con</span>
+                <span>o continua con</span>
                 <div className="h-px flex-1 bg-gray-200" />
               </div>
 
@@ -278,21 +347,16 @@ export function PaginaAcceso() {
                   <button
                     key={proveedor}
                     type="button"
-                    onClick={() => setError(`El acceso con ${proveedor} estará disponible próximamente.`)}
+                    onClick={() => setError(`El acceso con ${proveedor} estara disponible proximamente.`)}
                     className="flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-[#1a9b8e] hover:bg-[#f7fcfb]"
                   >
                     <span>Continuar con {proveedor}</span>
                     <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500">
-                      Próximamente
+                      Proximamente
                     </span>
                   </button>
                 ))}
               </div>
-
-              <p className="mt-6 text-center text-xs leading-relaxed text-gray-500">
-                Hemos preparado esta interfaz para integrarla con autenticación real sin necesidad de rehacer la
-                experiencia.
-              </p>
             </div>
           </section>
         </div>
