@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, Calendar, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
-//LOGO PARA EL HERO
+//EXPLORA EL MADRID MAS PET-FRIENDLY
 const logo = '/logo_def_pm.png';
 
 export function HeroSection() {

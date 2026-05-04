@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Coffee, Filter, Home, MapPin, Search, Star } from 'lucide-react';
-
+//MAPA INTERACTIVO
 export function MapSection() {
   return (
     <section id="mapa" className="bg-gradient-to-br from-white via-[#e8f8f5]/30 to-white py-20">

@@ -12,7 +12,7 @@ import {
 } from '../utils/auth';
 
 const logo = '/logo_def_pm.png';
-const nivelesTamano = ['Pequeno', 'Mediano', 'Grande', 'Muy grande'] as const;
+const nivelesTamano = ['Pequeño', 'Mediano', 'Grande', 'Muy grande'] as const;
 
 function leerArchivoComoDataUrl(archivo: File) {
   return new Promise<string>((resolve, reject) => {
@@ -410,7 +410,7 @@ export function PaginaPerfil() {
                   onClick={anadirMascota}
                   className="rounded-full bg-gradient-to-r from-[#1a9b8e] to-[#7ab851] px-4 py-2 text-sm font-semibold text-white transition hover:shadow-lg"
                 >
-                  Anadir
+                  Añadir
                 </button>
               </div>
             </div>
@@ -449,7 +449,7 @@ export function PaginaPerfil() {
                                   className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
                                 >
                                   <option value="" disabled>
-                                    Tamano
+                                    Tamaño
                                   </option>
                                   {nivelesTamano.map((tamano) => (
                                     <option key={tamano} value={tamano}>
@@ -544,7 +544,7 @@ export function PaginaPerfil() {
                                 <h3 className="text-lg font-bold text-gray-900">{mascota.nombre || 'Sin nombre'}</h3>
                               </div>
                               <p className="mt-1 text-sm text-gray-600">
-                                {[mascota.raza || 'Raza pendiente', mascota.tamano || 'Tamano pendiente'].join(' · ')}
+                                {[mascota.raza || 'Raza pendiente', mascota.tamano || 'Tamaño pendiente'].join(' · ')}
                               </p>
                               <p className="mt-2 text-sm text-gray-600">
                                 {mascota.peso ? `${mascota.peso} kg` : 'Peso pendiente'}
