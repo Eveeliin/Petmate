@@ -1,7 +1,21 @@
-import React from 'react';
-import { Calendar, Coffee, Filter, Home, MapPin, Search, Star } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Calendar, Info, MapPin } from 'lucide-react';
+import { establecimientos, type CategoriaEstablecimiento } from '../data/establecimientos';
+import { PetFriendlyMap } from './PetFriendlyMap';
+
+const categorias: Array<'Todas' | CategoriaEstablecimiento> = ['Todas', 'Restaurantes', 'Ocio', 'Alojamientos'];
 
 export function MapSection() {
+  const [categoriaActiva, setCategoriaActiva] = useState<'Todas' | CategoriaEstablecimiento>('Todas');
+
+  const establecimientosFiltrados = useMemo(() => {
+    if (categoriaActiva === 'Todas') {
+      return establecimientos;
+    }
+
+    return establecimientos.filter((establecimiento) => establecimiento.categoria === categoriaActiva);
+  }, [categoriaActiva]);
+
   return (
     <section id="mapa" className="bg-gradient-to-br from-white via-[#e8f8f5]/30 to-white py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -13,99 +27,39 @@ export function MapSection() {
             </span>
           </h2>
           <p className="mx-auto max-w-2xl text-xl text-gray-600">
-            Encuentra establecimientos permanentes y eventos temporales donde tu mascota es bienvenida.
+            Encuentra establecimientos permanentes y planes de ocio donde tu mascota es bienvenida.
           </p>
         </div>
 
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          <div className="relative">
-            <div className="rounded-3xl bg-gradient-to-br from-[#e8f8f5] to-[#f0f8e8] p-8 shadow-2xl">
-              <div className="mb-6 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-lg">
-                <Search size={20} className="text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar lugares o eventos..."
-                  className="flex-1 text-gray-700 outline-none"
-                  disabled
-                />
-                <button className="rounded-xl bg-gradient-to-r from-[#1a9b8e] to-[#7ab851] p-2 text-white transition-shadow hover:shadow-md">
-                  <Filter size={20} />
-                </button>
-              </div>
+        <div className="grid items-start gap-12 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-3xl bg-gradient-to-br from-[#e8f8f5] to-[#f0f8e8] p-8 shadow-2xl">
+            <PetFriendlyMap puntos={establecimientosFiltrados} altoClase="h-[26rem]" />
 
-              <div className="relative h-96 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
-                <div className="absolute inset-0 opacity-10">
-                  <div className="grid h-full grid-cols-8 grid-rows-8">
-                    {Array.from({ length: 64 }).map((_, index) => (
-                      <div key={index} className="border border-gray-400" />
-                    ))}
-                  </div>
-                </div>
+            <div className="mt-6 flex flex-wrap justify-center gap-4">
+              {categorias.map((categoria) => {
+                const color =
+                  categoria === 'Restaurantes'
+                    ? 'bg-[#1a9b8e]'
+                    : categoria === 'Ocio'
+                      ? 'bg-[#ff8c42]'
+                      : categoria === 'Alojamientos'
+                        ? 'bg-[#7ab851]'
+                        : 'bg-[#14213d]';
 
-                <div className="absolute left-1/3 top-1/4 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-[#1a9b8e] shadow-lg animate-bounce">
-                  <Coffee size={20} className="text-white" />
-                </div>
-                <div
-                  className="absolute right-1/4 top-1/2 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-[#ff8c42] shadow-lg animate-bounce"
-                  style={{ animationDelay: '0.3s' }}
-                >
-                  <Calendar size={20} className="text-white" />
-                </div>
-                <div
-                  className="absolute bottom-1/4 left-1/2 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-[#7ab851] shadow-lg animate-bounce"
-                  style={{ animationDelay: '0.6s' }}
-                >
-                  <Home size={20} className="text-white" />
-                </div>
-                <div
-                  className="absolute right-1/3 top-1/3 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-[#1a9b8e] shadow-lg animate-bounce"
-                  style={{ animationDelay: '0.9s' }}
-                >
-                  <MapPin size={20} className="text-white" />
-                </div>
-
-                <div className="animate-in slide-in-from-bottom-2 absolute bottom-4 left-4 right-4 rounded-xl border border-gray-100 bg-white p-4 shadow-xl fade-in">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#1a9b8e] to-[#7ab851]">
-                      <Coffee size={24} className="text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="mb-1 text-sm font-bold text-gray-900">El Perro y La Galleta</h4>
-                      <div className="mb-2 flex items-center gap-2">
-                        <div className="flex">
-                          {Array.from({ length: 5 }).map((_, index) => (
-                            <Star key={index} size={12} className="fill-[#ff8c42] text-[#ff8c42]" />
-                          ))}
-                        </div>
-                        <span className="text-xs text-gray-500">(127 reseñas)</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <span className="rounded-full bg-[#e8f8f5] px-2 py-1 text-xs font-medium text-[#1a9b8e]">
-                          Cafeteria
-                        </span>
-                        <span className="rounded-full bg-[#fff4eb] px-2 py-1 text-xs font-medium text-[#ff8c42]">
-                          Terraza
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex flex-wrap justify-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded-full bg-[#1a9b8e]" />
-                  <span className="text-sm font-medium text-gray-600">Restaurantes</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded-full bg-[#ff8c42]" />
-                  <span className="text-sm font-medium text-gray-600">Eventos</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded-full bg-[#7ab851]" />
-                  <span className="text-sm font-medium text-gray-600">Alojamientos</span>
-                </div>
-              </div>
+                return (
+                  <button
+                    key={categoria}
+                    type="button"
+                    onClick={() => setCategoriaActiva(categoria)}
+                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      categoriaActiva === categoria ? 'bg-white text-gray-900 shadow-md' : 'text-gray-700 hover:text-[#1a9b8e]'
+                    }`}
+                  >
+                    <span className={`h-4 w-4 rounded-full ${color}`} />
+                    {categoria}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -116,9 +70,9 @@ export function MapSection() {
                   <MapPin size={24} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="mb-2 text-xl font-bold text-gray-900">Localizacion en Tiempo Real</h3>
+                  <h3 className="mb-2 text-xl font-bold text-gray-900">Ubicaciones claras y útiles</h3>
                   <p className="leading-relaxed text-gray-600">
-                    Visualiza restaurantes, cafeterías y alojamientos pet-friendly en toda la Comunidad de Madrid.
+                    Visualiza restaurantes, alojamientos y planes fijos de Madrid en un mapa sencillo y directo.
                   </p>
                 </div>
               </div>
@@ -130,9 +84,9 @@ export function MapSection() {
                   <Calendar size={24} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="mb-2 text-xl font-bold text-gray-900">Eventos Temporales</h3>
+                  <h3 className="mb-2 text-xl font-bold text-gray-900">Planes con tu mascota</h3>
                   <p className="leading-relaxed text-gray-600">
-                    Descubre mercadillos, actividades culturales y eventos especiales donde tu mascota puede acompañarte.
+                    Descubre actividades y espacios donde tu mascota puede acompañarte con total normalidad.
                   </p>
                 </div>
               </div>
@@ -141,25 +95,22 @@ export function MapSection() {
             <div className="rounded-2xl border border-gray-50 bg-white p-6 shadow-lg transition-all hover:shadow-xl">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#7ab851] to-[#1a9b8e]">
-                  <Filter size={24} className="text-white" />
+                  <Info size={24} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="mb-2 text-xl font-bold text-gray-900">Filtros Especializados</h3>
+                  <h3 className="mb-2 text-xl font-bold text-gray-900">Información rápida</h3>
                   <p className="leading-relaxed text-gray-600">
-                    Filtra por tamaño de mascota, acceso a interiores, terrazas disponibles y mucho más.
+                    Cada punto incluye su categoría, una breve descripción y la regla principal para ir con mascota.
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="rounded-full bg-[#e8f8f5] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#1a9b8e]">
-                      Tamaño
+                      Restaurantes
                     </span>
                     <span className="rounded-full bg-[#fff4eb] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#ff8c42]">
-                      Interiores
+                      Ocio
                     </span>
                     <span className="rounded-full bg-[#f0f8e8] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#7ab851]">
-                      Terrazas
-                    </span>
-                    <span className="rounded-full bg-[#e8f8f5] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#1a9b8e]">
-                      Tipo de animal
+                      Alojamientos
                     </span>
                   </div>
                 </div>
