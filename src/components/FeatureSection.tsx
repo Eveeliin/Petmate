@@ -1,47 +1,26 @@
 import React from 'react';
 import { Calendar, Filter, MapPin, Smartphone, Star, Users } from 'lucide-react';
-//CARACTERISTICAS PRINCIPALES ¿Por qué elegir PetMate?
+//CARACTERISTICAS PRINCIPALES Preguntas Frecuentes
 const features = [
   {
-    icon: MapPin,
-    title: 'Mapa Interactivo',
-    description: 'Visualiza en tiempo real todos los lugares pet-friendly cerca de ti con nuestro mapa interactivo.',
+    icon: Calendar,
+    title: '¿Cómo puedo registrame en un evento',
+    description: 'Inicia sesión o crea tu cuenta. Luego ve a la pestaña "Eventos" y haz clic en Unirme. Todos tus eventos quedarán registrados en tu perfil',
     color: 'from-[#1a9b8e] to-[#7ab851]',
     bgColor: 'bg-[#e8f8f5]',
   },
   {
-    icon: Filter,
-    title: 'Filtros Especializados',
-    description: 'Filtra por tamaño de mascota, acceso a interiores, tipo de animal y mucho más.',
+    icon: MapPin,
+    title: '¿Necesito cuenta para guardar lugares favoritos?',
+    description: 'Sí. Para poder guardar y consultar tus lugares favoritos es necesario tener una cuenta en PetMate.',
     color: 'from-[#ff8c42] to-[#ff6b6b]',
     bgColor: 'bg-[#fff4eb]',
   },
   {
-    icon: Users,
-    title: 'Comunidad Activa',
-    description: 'Únete a quedadas, organiza paseos grupales y conecta con otros amantes de las mascotas.',
+    icon: Filter,
+    title: '¿Puedo filtrar lugares?',
+    description: 'Por ahora puedes filtrar lugares por categorías. Estamos trabajando en otros tipos de filtro para mejorar vuestra experiencia.',
     color: 'from-[#7ab851] to-[#1a9b8e]',
-    bgColor: 'bg-[#f0f8e8]',
-  },
-  {
-    icon: Calendar,
-    title: 'Eventos y Establecimientos',
-    description: 'Descubre tanto lugares permanentes como eventos temporales donde tu mascota es bienvenida.',
-    color: 'from-[#1a9b8e] to-[#ff8c42]',
-    bgColor: 'bg-[#e8f8f5]',
-  },
-  {
-    icon: Star,
-    title: 'Reseñas Verificadas',
-    description: 'Lee opiniones reales de otros usuarios y ayuda a la comunidad compartiendo tu experiencia.',
-    color: 'from-[#ff8c42] to-[#7ab851]',
-    bgColor: 'bg-[#fff4eb]',
-  },
-  {
-    icon: Smartphone,
-    title: 'Fácil de Usar',
-    description: 'Interfaz intuitiva diseñada para que encuentres lo que buscas en segundos.',
-    color: 'from-[#7ab851] to-[#ff8c42]',
     bgColor: 'bg-[#f0f8e8]',
   },
 ];
@@ -52,8 +31,8 @@ export function FeaturesSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-16 text-center">
           <h2 className="mb-4 text-4xl font-bold text-gray-900 md:text-5xl">
-            ¿Por qué elegir{' '}
-            <span className="bg-gradient-to-r from-[#1a9b8e] to-[#ff8c42] bg-clip-text text-transparent">PetMate</span>?
+            Preguntas{' '}
+            <span className="bg-gradient-to-r from-[#1a9b8e] to-[#ff8c42] bg-clip-text text-transparent">Frecuentes</span>
           </h2>
           <p className="mx-auto max-w-2xl text-xl text-gray-600">
             La plataforma más completa para disfrutar de Madrid con tu mascota.
@@ -79,21 +58,6 @@ export function FeaturesSection() {
               </div>
             );
           })}
-        </div>
-
-        <div className="relative mt-20 overflow-hidden rounded-3xl bg-gradient-to-r from-[#1a9b8e] to-[#7ab851] p-12 text-center text-white">
-          <div className="absolute right-0 top-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10" />
-          <div className="absolute bottom-0 left-0 h-48 w-48 -translate-x-1/2 translate-y-1/2 rounded-full bg-white/10" />
-
-          <div className="relative z-10">
-            <h3 className="mb-4 text-3xl font-bold md:text-4xl">¿Organizas eventos pet-friendly?</h3>
-            <p className="mx-auto mb-8 max-w-2xl text-xl opacity-90">
-              Publica tus eventos gratis y llega a miles de amantes de las mascotas en Madrid.
-            </p>
-            <button className="rounded-full bg-white px-8 py-4 font-bold text-[#1a9b8e] shadow-md transition-all hover:scale-105 hover:shadow-2xl">
-              Publicar Evento Gratis
-            </button>
-          </div>
         </div>
       </div>
     </section>

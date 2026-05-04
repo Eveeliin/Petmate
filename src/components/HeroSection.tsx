@@ -1,7 +1,6 @@
 import React from 'react';
-import { ArrowRight, Calendar, MapPin } from 'lucide-react';
-import { Link } from 'react-router-dom';
-//LOGO PARA EL HERO
+import { Calendar, MapPin } from 'lucide-react';
+
 const logo = '/logo_def_pm.png';
 
 export function HeroSection() {
@@ -24,7 +23,7 @@ export function HeroSection() {
             <h1 className="mb-6 text-5xl font-bold leading-tight text-gray-900 md:text-6xl lg:text-7xl">
               <span className="block">Explora el</span>
               <span className="block bg-gradient-to-r from-[#1a9b8e] to-[#7ab851] bg-clip-text text-transparent">
-                Madrid mas
+                Madrid más
               </span>
               <span className="block bg-gradient-to-r from-[#ff8c42] to-[#ff6b6b] bg-clip-text text-transparent">
                 Pet-Friendly
@@ -35,21 +34,6 @@ export function HeroSection() {
               La mejor plataforma para encontrar establecimientos, alojamientos y eventos pet-friendly en Madrid. Mapa
               interactivo, filtros especializados y comunidad activa.
             </p>
-
-            <div className="mx-auto mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-gray-100 pt-8 lg:mx-0">
-              <div className="text-center lg:text-left">
-                <div className="text-3xl font-bold text-[#1a9b8e]">150+</div>
-                <div className="text-sm font-medium text-gray-600">Eventos</div>
-              </div>
-              <div className="text-center lg:text-left">
-                <div className="text-3xl font-bold text-[#ff8c42]">2,500+</div>
-                <div className="text-sm font-medium text-gray-600">Mascotas</div>
-              </div>
-              <div className="text-center lg:text-left">
-                <div className="text-3xl font-bold text-[#7ab851]">1,200+</div>
-                <div className="text-sm font-medium text-gray-600">Usuarios</div>
-              </div>
-            </div>
           </div>
 
           <div className="relative">
@@ -68,7 +52,7 @@ export function HeroSection() {
                     🐕
                   </div>
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-gray-500">Proximo</div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-gray-500">Próximo</div>
                     <div className="text-sm font-semibold text-gray-900">Parque del Retiro</div>
                   </div>
                 </div>

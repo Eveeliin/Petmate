@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { LogIn, Menu, UserRound, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { limpiarSesion, obtenerSesion, suscribirCambioAutenticacion } from '../utils/auth';
-//LOGO PARA EL HEADER
+
 const logo = '/logo_def_pm.png';
 
 export function Header() {
@@ -11,14 +11,17 @@ export function Header() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const sincronizarAutenticacion = async () => {
+    const sincronizar = async () => {
       const sesion = await obtenerSesion();
       setEstaAutenticado(Boolean(sesion));
     };
 
-    void sincronizarAutenticacion();
-    const cancelarSuscripcion = suscribirCambioAutenticacion(sincronizarAutenticacion);
-    return cancelarSuscripcion;
+    sincronizar();
+    const cancelar = suscribirCambioAutenticacion(() => {
+      sincronizar();
+    });
+
+    return cancelar;
   }, []);
 
   const cerrarSesion = async () => {
@@ -27,29 +30,36 @@ export function Header() {
     navigate('/');
   };
 
+  const subirAlInicio = () => {
+    setMenuAbierto(false);
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  };
+
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           <div className="shrink-0">
-            <Link to="/" className="block transition-transform hover:scale-105 active:scale-95" title="Ir al inicio">
+            <Link
+              to="/"
+              onClick={subirAlInicio}
+              className="block transition-transform hover:scale-105 active:scale-95"
+              title="Ir al inicio"
+            >
               <img src={logo} alt="PetMate" className="h-16 w-auto" />
             </Link>
           </div>
 
           <nav className="hidden items-center space-x-8 md:flex">
-            <a href="#mapa" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
+            <Link to="/establecimientos" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
               Mapa
-            </a>
-            <a href="#eventos" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
+            </Link>
+            <Link to="/eventos" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
               Eventos
-            </a>
-            <a href="#comunidad" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
-              Comunidad
-            </a>
-            <a href="#beneficios" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
-              Caracteristicas
-            </a>
+            </Link>
+            <Link to="/#contacto" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
+              Contacto
+            </Link>
             {estaAutenticado ? (
               <>
                 <Link
@@ -57,7 +67,7 @@ export function Header() {
                   className="flex items-center gap-2 rounded-full border-2 border-gray-200 px-6 py-2 font-medium text-gray-700 transition-all hover:border-[#1a9b8e] hover:text-[#1a9b8e]"
                 >
                   <UserRound size={18} />
-                  Mi Perfil
+                  Mi perfil
                 </Link>
                 <button
                   type="button"
@@ -89,7 +99,7 @@ export function Header() {
           <button
             className="p-2 text-gray-600 transition-colors hover:text-[#1a9b8e] md:hidden"
             onClick={() => setMenuAbierto((valorActual) => !valorActual)}
-            aria-label="Abrir menu"
+            aria-label="Abrir menú"
           >
             {menuAbierto ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -98,34 +108,27 @@ export function Header() {
         {menuAbierto && (
           <nav className="animate-in slide-in-from-top-4 duration-300 border-t border-gray-100 py-4 fade-in md:hidden">
             <div className="flex flex-col space-y-4">
-              <a
-                href="#mapa"
+              <Link
+                to="/establecimientos"
                 className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
                 onClick={() => setMenuAbierto(false)}
               >
                 Mapa
-              </a>
-              <a
-                href="#eventos"
+              </Link>
+              <Link
+                to="/eventos"
                 className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
                 onClick={() => setMenuAbierto(false)}
               >
                 Eventos
-              </a>
-              <a
-                href="#comunidad"
+              </Link>
+              <Link
+                to="/#contacto"
                 className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
                 onClick={() => setMenuAbierto(false)}
               >
-                Comunidad
-              </a>
-              <a
-                href="#beneficios"
-                className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
-                onClick={() => setMenuAbierto(false)}
-              >
-                Caracteristicas
-              </a>
+                Contacto
+              </Link>
               <div className="flex flex-col gap-3 pt-2">
                 {estaAutenticado ? (
                   <>
@@ -135,7 +138,7 @@ export function Header() {
                       className="flex items-center justify-center gap-2 rounded-full border-2 border-gray-200 px-6 py-3 text-gray-700 hover:border-[#1a9b8e]"
                     >
                       <UserRound size={18} />
-                      Mi Perfil
+                      Mi perfil
                     </Link>
                     <button
                       type="button"
