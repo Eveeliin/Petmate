@@ -4,10 +4,9 @@ import { Footer } from '../components/Footer';
 import { Header } from '../components/Header';
 import { PetFriendlyMap } from '../components/PetFriendlyMap';
 import {
-  guardarPerfilUsuario,
+  toggleFavorito as alternarFavorito,
   obtenerPerfilUsuario,
   obtenerSesion,
-  type LugarFavorito,
   type PerfilUsuario,
 } from '../utils/auth';
 import { establecimientos, type CategoriaEstablecimiento } from '../data/establecimientos';
@@ -45,7 +44,7 @@ export function PaginaEstablecimientos() {
     cargarEstado();
   }, []);
 
-  const favoritosGuardados = useMemo(() => new Set(perfil?.favoritos.map((favorito) => favorito.id) ?? []), [perfil]);
+  const favoritosGuardados = useMemo(() => new Set(perfil?.favoritos.map((favorito) => favorito.nombre) ?? []), [perfil]);
 
   const establecimientosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -77,40 +76,24 @@ export function PaginaEstablecimientos() {
   }, [busqueda, establecimientosFiltrados]);
 
   const toggleFavorito = async (establecimientoId: string) => {
-    if (!perfil) {
-      return;
-    }
+    if (!perfil) return;
 
     const establecimiento = establecimientos.find((item) => item.id === establecimientoId);
-    if (!establecimiento) {
-      return;
-    }
+    if (!establecimiento) return;
 
     setGuardandoFavorito(establecimientoId);
 
     try {
-      const yaGuardado = perfil.favoritos.some((favorito) => favorito.id === establecimientoId);
+      const favoritosActualizados = await alternarFavorito({
+        nombre: establecimiento.nombre,
+        direccion: establecimiento.direccion,
+        admitePerrosGrandes: establecimiento.admitePerrosGrandes,
+        accesoInterior: establecimiento.accesoInterior,
+      });
 
-      const siguienteFavoritos: LugarFavorito[] = yaGuardado
-        ? perfil.favoritos.filter((favorito) => favorito.id !== establecimientoId)
-        : [
-            ...perfil.favoritos,
-            {
-              id: establecimiento.id,
-              nombre: establecimiento.nombre,
-              direccion: establecimiento.direccion,
-              admitePerrosGrandes: establecimiento.admitePerrosGrandes,
-              accesoInterior: establecimiento.accesoInterior,
-            },
-          ];
-
-      const perfilActualizado = {
-        ...perfil,
-        favoritos: siguienteFavoritos,
-      };
-
-      await guardarPerfilUsuario(perfilActualizado);
-      setPerfil(perfilActualizado);
+      setPerfil((perfilActual) =>
+        perfilActual ? { ...perfilActual, favoritos: favoritosActualizados } : perfilActual,
+      );
     } finally {
       setGuardandoFavorito(null);
     }
@@ -190,7 +173,7 @@ export function PaginaEstablecimientos() {
 
             <div className="space-y-6">
               {establecimientosFiltrados.map((establecimiento) => {
-                const estaGuardado = favoritosGuardados.has(establecimiento.id);
+                const estaGuardado = favoritosGuardados.has(establecimiento.nombre);
 
                 return (
                   <article

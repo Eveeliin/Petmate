@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 import { Header } from '../components/Header';
 import {
+  crearEvento,
+  eliminarEventoCreado,
   guardarPerfilUsuario,
   limpiarPerfilUsuario,
   limpiarSesion,
@@ -36,12 +38,20 @@ function crearMascotaVacia(): PerfilMascota {
   };
 }
 
+const TIPOS_ADMISION = [
+  { valor: 'Perros', emoji: '🐕' },
+  { valor: 'Gatos', emoji: '🐈' },
+  { valor: 'Cualquier Mascota', emoji: '🐾' },
+  { valor: 'Guías', emoji: '🦮' },
+] as const;
+
 function crearEventoVacio(): EventoCreado {
   return {
     id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     nombre: '',
     fechaHora: '',
     direccion: '',
+    admision: 'Cualquier Mascota',
     maxAttendees: null,
   };
 }
@@ -401,39 +411,37 @@ export function PaginaPerfil() {
 
     const fechaHora = `${fechaLimpia} - ${horaLimpia} h`;
 
-    const perfilActualizado: PerfilUsuario = {
-      ...perfil,
-      eventos: [
-        ...perfil.eventos,
-        {
-          ...nuevoEvento,
-          nombre: nuevoEvento.nombre.trim(),
-          fechaHora,
-          direccion: nuevoEvento.direccion.trim(),
-        },
-      ],
-    };
+    try {
+      const eventoGuardado = await crearEvento({
+        nombre: nuevoEvento.nombre.trim(),
+        fechaHora,
+        direccion: nuevoEvento.direccion.trim(),
+        admision: nuevoEvento.admision ?? 'Cualquier Mascota',
+      });
 
-    await guardarPerfilUsuario(perfilActualizado);
-    setPerfil(perfilActualizado);
-    setNuevoEvento(crearEventoVacio());
-    setFechaNuevoEvento('');
-    setHoraNuevoEvento('');
-    setMostrandoFormularioEvento(false);
-    mostrarMensajeTemporal('Evento creado correctamente.');
+      setPerfil((prev) => prev ? { ...prev, eventos: [...prev.eventos, eventoGuardado] } : prev);
+      setNuevoEvento(crearEventoVacio());
+      setFechaNuevoEvento('');
+      setHoraNuevoEvento('');
+      setMostrandoFormularioEvento(false);
+      mostrarMensajeTemporal('Evento creado correctamente.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al crear el evento.';
+      mostrarMensajeTemporal(msg);
+    }
   };
 
   const eliminarEvento = async (idEvento: string) => {
     if (!perfil) return;
 
-    const perfilActualizado: PerfilUsuario = {
-      ...perfil,
-      eventos: perfil.eventos.filter((evento) => evento.id !== idEvento),
-    };
-
-    await guardarPerfilUsuario(perfilActualizado);
-    setPerfil(perfilActualizado);
-    mostrarMensajeTemporal('Evento eliminado.');
+    try {
+      await eliminarEventoCreado(idEvento);
+      setPerfil((prev) => prev ? { ...prev, eventos: prev.eventos.filter((e) => e.id !== idEvento) } : prev);
+      mostrarMensajeTemporal('Evento eliminado.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al eliminar el evento.';
+      mostrarMensajeTemporal(msg);
+    }
   };
 
   const eliminarEventoGuardado = async (idEvento: string) => {
@@ -985,6 +993,45 @@ export function PaginaPerfil() {
                       placeholder="Dirección"
                       className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e] md:col-span-2"
                     />
+
+                    <div className="md:col-span-2">
+                      <span className="mb-2 block text-sm font-medium text-gray-700">Mascotas admitidas</span>
+                      <div className="flex flex-wrap gap-2">
+                        {TIPOS_ADMISION.map(({ valor, emoji }) => {
+                          const seleccionados = (nuevoEvento.admision ?? 'Cualquier Mascota')
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+                          const estaSeleccionado = seleccionados.includes(valor);
+                          return (
+                            <button
+                              key={valor}
+                              type="button"
+                              onClick={() => {
+                                const actuales = (nuevoEvento.admision ?? 'Cualquier Mascota')
+                                  .split(',')
+                                  .map((s) => s.trim())
+                                  .filter(Boolean);
+                                const nuevos = estaSeleccionado
+                                  ? actuales.filter((v) => v !== valor)
+                                  : [...actuales, valor];
+                                actualizarCampoNuevoEvento(
+                                  'admision',
+                                  nuevos.length > 0 ? nuevos.join(',') : 'Cualquier Mascota',
+                                );
+                              }}
+                              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                                estaSeleccionado
+                                  ? 'bg-[#1a9b8e] text-white'
+                                  : 'border border-gray-200 bg-white text-gray-700 hover:border-[#1a9b8e] hover:text-[#1a9b8e]'
+                              }`}
+                            >
+                              {emoji} {valor}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-4 flex gap-3">

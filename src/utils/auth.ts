@@ -1,9 +1,5 @@
-type CuentaRegistrada = {
-  id: string;
-  nombre: string;
-  email: string;
-  contrasena: string;
-};
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../supabaseClient';
 
 export type PerfilMascota = {
   id: string;
@@ -28,13 +24,24 @@ export type EventoCreado = {
   nombre: string;
   fechaHora: string;
   direccion: string;
+  admision?: string | null;
+  asistentes?: number | null;
   maxAttendees?: number | null;
 };
 
 export type EventoGuardado = EventoCreado & {
   organizer?: string;
-  petTypes?: string[];
-  description?: string;
+};
+
+export type EventoCompleto = {
+  id: string;
+  nombre: string;
+  fechaHora: string;
+  direccion: string;
+  admision: string;
+  asistentes: number;
+  creadorNombre: string;
+  estaUnido: boolean;
 };
 
 export type PerfilUsuario = {
@@ -66,71 +73,33 @@ type DatosPerfilBase = {
   avatar?: string | null;
 };
 
-const CLAVE_CUENTAS = 'petmate_cuentas';
-const CLAVE_SESION = 'petmate_sesion';
-const CLAVE_PERFILES = 'petmate_perfiles';
-
-const suscriptores = new Set<() => void>();
-
-function leerJson<T>(clave: string, valorPorDefecto: T): T {
-  if (typeof window === 'undefined') {
-    return valorPorDefecto;
-  }
-
-  const valor = window.localStorage.getItem(clave);
-  if (!valor) {
-    return valorPorDefecto;
-  }
-
-  try {
-    return JSON.parse(valor) as T;
-  } catch {
-    return valorPorDefecto;
-  }
-}
-
-function guardarJson<T>(clave: string, valor: T) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(clave, JSON.stringify(valor));
-}
-
-function generarId(prefijo: string) {
-  return `${prefijo}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function obtenerCuentas() {
-  return leerJson<CuentaRegistrada[]>(CLAVE_CUENTAS, []);
-}
-
-function guardarCuentas(cuentas: CuentaRegistrada[]) {
-  guardarJson(CLAVE_CUENTAS, cuentas);
-}
-
-function obtenerPerfiles() {
-  return leerJson<Record<string, PerfilUsuario>>(CLAVE_PERFILES, {});
-}
-
-function guardarPerfiles(perfiles: Record<string, PerfilUsuario>) {
-  guardarJson(CLAVE_PERFILES, perfiles);
-}
-
-function crearSesionDesdeCuenta(cuenta: CuentaRegistrada): SesionPetMate {
+function mapearSesion(session: Session): SesionPetMate {
   return {
     user: {
-      id: cuenta.id,
-      email: cuenta.email,
+      id: session.user.id,
+      email: session.user.email ?? '',
       user_metadata: {
-        nombre: cuenta.nombre,
+        nombre: session.user.user_metadata?.nombre as string | undefined,
       },
     },
   };
 }
 
-function notificarCambioAutenticacion() {
-  suscriptores.forEach((callback) => callback());
+function parsearFechaHora(fechaHoraStr: string): string {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})\s*-\s*(\d{2}):(\d{2})/.exec(fechaHoraStr.trim());
+  if (!match) return new Date().toISOString();
+  const [, dia, mes, anio, hora, minuto] = match;
+  return new Date(Number(anio), Number(mes) - 1, Number(dia), Number(hora), Number(minuto)).toISOString();
+}
+
+function formatearFechaHora(isoString: string): string {
+  const fecha = new Date(isoString);
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const anio = fecha.getFullYear();
+  const hora = String(fecha.getHours()).padStart(2, '0');
+  const minuto = String(fecha.getMinutes()).padStart(2, '0');
+  return `${dia}/${mes}/${anio} - ${hora}:${minuto} h`;
 }
 
 export async function registrarCuenta({
@@ -142,33 +111,27 @@ export async function registrarCuenta({
   email: string;
   contrasena: string;
 }) {
-  const cuentas = obtenerCuentas();
-  const emailNormalizado = email.trim().toLowerCase();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: contrasena,
+    options: { data: { nombre } },
+  });
 
-  if (cuentas.some((cuenta) => cuenta.email.toLowerCase() === emailNormalizado)) {
-    throw new Error('Ese correo ya está registrado. Prueba a iniciar sesión.');
-  }
+  if (error) throw new Error(error.message);
+  if (!data.user) throw new Error('No se pudo crear la cuenta.');
 
-  const cuentaNueva: CuentaRegistrada = {
-    id: generarId('usr'),
-    nombre: nombre.trim(),
-    email: emailNormalizado,
-    contrasena,
-  };
-
-  guardarCuentas([...cuentas, cuentaNueva]);
-
-  const sesion = crearSesionDesdeCuenta(cuentaNueva);
-  guardarJson(CLAVE_SESION, sesion);
   await asegurarPerfilBase({
-    idUsuario: cuentaNueva.id,
-    nombre: cuentaNueva.nombre,
-    email: cuentaNueva.email,
+    idUsuario: data.user.id,
+    nombre: nombre.trim(),
+    email: email.trim().toLowerCase(),
     avatar: null,
   });
-  notificarCambioAutenticacion();
 
-  return sesion;
+  if (!data.session) {
+    throw new Error('Revisa tu correo para confirmar la cuenta antes de entrar.');
+  }
+
+  return mapearSesion(data.session);
 }
 
 export async function iniciarSesion({
@@ -178,43 +141,40 @@ export async function iniciarSesion({
   email: string;
   contrasena: string;
 }) {
-  const emailNormalizado = email.trim().toLowerCase();
-  const cuenta = obtenerCuentas().find(
-    (cuentaActual) => cuentaActual.email.toLowerCase() === emailNormalizado && cuentaActual.contrasena === contrasena,
-  );
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: contrasena,
+  });
 
-  if (!cuenta) {
-    throw new Error('Correo o contraseña incorrectos.');
-  }
-
-  const sesion = crearSesionDesdeCuenta(cuenta);
-  guardarJson(CLAVE_SESION, sesion);
-  notificarCambioAutenticacion();
-  return sesion;
+  if (error) throw new Error(error.message);
+  return mapearSesion(data.session);
 }
 
-export async function obtenerSesion() {
-  return leerJson<SesionPetMate | null>(CLAVE_SESION, null);
+export async function obtenerSesion(): Promise<SesionPetMate | null> {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return null;
+  return mapearSesion(data.session);
 }
 
 export async function obtenerUsuarioActual() {
-  const sesion = await obtenerSesion();
-  return sesion?.user ?? null;
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return null;
+  return {
+    id: data.user.id,
+    email: data.user.email ?? '',
+    user_metadata: data.user.user_metadata as { nombre?: string },
+  };
 }
 
 export async function limpiarSesion() {
-  if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(CLAVE_SESION);
-  }
-
-  notificarCambioAutenticacion();
+  await supabase.auth.signOut();
 }
 
 export function suscribirCambioAutenticacion(callback: () => void) {
-  suscriptores.add(callback);
-  return () => {
-    suscriptores.delete(callback);
-  };
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(() => callback());
+  return () => subscription.unsubscribe();
 }
 
 export async function asegurarPerfilBase({
@@ -223,113 +183,363 @@ export async function asegurarPerfilBase({
   nombre,
   avatar = null,
 }: DatosPerfilBase) {
-  const perfiles = obtenerPerfiles();
-  const perfilExistente = perfiles[idUsuario];
-
-  perfiles[idUsuario] = {
+  const { error } = await supabase.from('Perfil').upsert({
+    id: idUsuario,
     nombre: nombre.trim(),
     email: email.trim().toLowerCase(),
-    zonaHabitual: perfilExistente?.zonaHabitual ?? '',
-    biografia: perfilExistente?.biografia ?? '',
     avatar,
-    mascotas: perfilExistente?.mascotas ?? [],
-    favoritos: perfilExistente?.favoritos ?? [],
-    eventos: perfilExistente?.eventos ?? [],
-    eventosGuardados: perfilExistente?.eventosGuardados ?? [],
-  };
+  });
 
-  guardarPerfiles(perfiles);
+  if (error) throw new Error(error.message);
 }
 
 export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
-  const sesion = await obtenerSesion();
-  if (!sesion) {
-    return null;
-  }
+  const { data: sesionData } = await supabase.auth.getSession();
+  if (!sesionData.session) return null;
+  const userId = sesionData.session.user.id;
 
-  const perfiles = obtenerPerfiles();
-  const perfil = perfiles[sesion.user.id];
-  if (!perfil) {
-    return null;
+  const { data: perfil, error: errorPerfil } = await supabase
+    .from('Perfil')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (errorPerfil) throw new Error(errorPerfil.message);
+  if (!perfil) return null;
+
+  const { data: mascotas } = await supabase
+    .from('Mascotas')
+    .select('*')
+    .eq('dueno_id', userId);
+
+  const { data: favoritos } = await supabase
+    .from('Favoritos')
+    .select('Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
+    .eq('perfil_id', userId);
+
+  const { data: eventos } = await supabase
+    .from('Eventos')
+    .select('*')
+    .eq('creador_id', userId);
+
+  const { data: guardadosData } = await supabase
+    .from('eventos_guardados')
+    .select('evento_guardado, Eventos(id, nombre, fecha_hora, direccion, admision, asistentes, creador_id)')
+    .eq('perfil_id', userId);
+
+  const eventosGuardadosRaw = (guardadosData ?? [])
+    .map((g) => (g as { Eventos: Record<string, unknown> | null }).Eventos)
+    .filter((e): e is NonNullable<typeof e> => e !== null);
+
+  const creadoresGuardadosIds = [
+    ...new Set(eventosGuardadosRaw.map((e) => e['creador_id'] as string).filter(Boolean)),
+  ];
+  const nombresGuardadosPorId: Record<string, string> = {};
+  if (creadoresGuardadosIds.length > 0) {
+    const { data: perfilesCreadores } = await supabase
+      .from('Perfil')
+      .select('id, nombre')
+      .in('id', creadoresGuardadosIds);
+    for (const p of perfilesCreadores ?? []) {
+      nombresGuardadosPorId[p.id as string] = p.nombre as string;
+    }
   }
 
   return {
-    ...perfil,
-    eventosGuardados: perfil.eventosGuardados ?? [],
+    nombre: perfil.nombre,
+    email: perfil.email,
+    zonaHabitual: '',
+    biografia: '',
+    avatar: perfil.avatar ?? null,
+    mascotas: (mascotas ?? []).map((m) => ({
+      id: m.id,
+      nombre: m.nombre,
+      raza: m.raza ?? '',
+      peso: m.peso ?? null,
+      tamano: m.tamano ?? '',
+      esSociable: m.sociabilidad ?? false,
+      foto: m.foto ?? null,
+    })),
+    favoritos: (favoritos ?? [])
+      .map((f) => (f as { Lugares: Record<string, unknown> | null }).Lugares)
+      .filter((l): l is NonNullable<typeof l> => l !== null)
+      .map((l) => ({
+        id: l['nombre'] as string,
+        nombre: l['nombre'] as string,
+        direccion: l['direccion'] as string,
+        admitePerrosGrandes: l['admision_perros_grandes'] as boolean,
+        accesoInterior: l['acceso_interior'] as boolean,
+      })),
+    eventos: (eventos ?? []).map((e) => ({
+      id: e.id,
+      nombre: e.nombre,
+      fechaHora: formatearFechaHora(e.fecha_hora),
+      direccion: e.direccion,
+      admision: e.admision ?? '',
+      asistentes: e.asistentes ?? 1,
+      maxAttendees: null,
+    })),
+    eventosGuardados: eventosGuardadosRaw.map((e) => ({
+      id: e['id'] as string,
+      nombre: e['nombre'] as string,
+      fechaHora: formatearFechaHora(e['fecha_hora'] as string),
+      direccion: e['direccion'] as string,
+      admision: (e['admision'] as string) ?? '',
+      asistentes: (e['asistentes'] as number) ?? 0,
+      maxAttendees: null,
+      organizer: nombresGuardadosPorId[e['creador_id'] as string] ?? '',
+    })),
   };
+}
+
+export async function guardarPerfilUsuario(perfil: PerfilUsuario) {
+  const { data: sesionData } = await supabase.auth.getSession();
+  if (!sesionData.session) throw new Error('No hay sesión activa.');
+  const userId = sesionData.session.user.id;
+
+  const { error: errorPerfil } = await supabase
+    .from('Perfil')
+    .update({ nombre: perfil.nombre, avatar: perfil.avatar ?? null })
+    .eq('id', userId);
+  if (errorPerfil) throw new Error(errorPerfil.message);
+
+  await supabase.from('Mascotas').delete().eq('dueno_id', userId);
+  if (perfil.mascotas.length > 0) {
+    const { error: errorMascotas } = await supabase.from('Mascotas').insert(
+      perfil.mascotas.map((m) => ({
+        dueno_id: userId,
+        nombre: m.nombre,
+        raza: m.raza || null,
+        peso: m.peso ?? null,
+        tamano: m.tamano || null,
+        sociabilidad: m.esSociable,
+        foto: m.foto ?? null,
+      })),
+    );
+    if (errorMascotas) throw new Error(errorMascotas.message);
+  }
+
+  // Sincronizar eventos_guardados: eliminar los quitados desde el perfil
+  const idsGuardados = new Set(perfil.eventosGuardados.map((e) => e.id));
+  const { data: guardadosDB } = await supabase
+    .from('eventos_guardados')
+    .select('id, evento_guardado')
+    .eq('perfil_id', userId);
+
+  const filasAEliminar = (guardadosDB ?? []).filter((g) => !idsGuardados.has(g.evento_guardado as string));
+  for (const fila of filasAEliminar) {
+    await supabase.from('eventos_guardados').delete().eq('id', fila.id);
+    const { data: ev } = await supabase.from('Eventos').select('asistentes').eq('id', fila.evento_guardado).maybeSingle();
+    const nuevosAsistentes = Math.max(0, ((ev?.asistentes as number) ?? 1) - 1);
+    await supabase.from('Eventos').update({ asistentes: nuevosAsistentes }).eq('id', fila.evento_guardado);
+  }
+}
+
+export async function limpiarPerfilUsuario() {
+  const { data: sesionData } = await supabase.auth.getSession();
+  if (!sesionData.session) return;
+  const userId = sesionData.session.user.id;
+
+  await supabase.from('eventos_guardados').delete().eq('perfil_id', userId);
+  await supabase.from('Mascotas').delete().eq('dueno_id', userId);
+  await supabase.from('Eventos').delete().eq('creador_id', userId);
+  await supabase.from('Favoritos').delete().eq('perfil_id', userId);
+  await supabase.from('Perfil').delete().eq('id', userId);
+  await supabase.auth.signOut();
+}
+
+export async function guardarMascotas(mascotas: PerfilMascota[], idDueno: string) {
+  await supabase.from('Mascotas').delete().eq('dueno_id', idDueno);
+  if (mascotas.length > 0) {
+    const { error } = await supabase.from('Mascotas').insert(
+      mascotas.map((m) => ({
+        dueno_id: idDueno,
+        nombre: m.nombre,
+        raza: m.raza || null,
+        peso: m.peso ?? null,
+        tamano: m.tamano || null,
+        sociabilidad: m.esSociable,
+        foto: m.foto ?? null,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
 }
 
 export function esPerfilIncompleto(perfil: PerfilUsuario | null) {
   return !perfil || !perfil.nombre || !perfil.nombre.trim();
 }
 
-export async function guardarMascotas(mascotas: PerfilMascota[], idDueno: string) {
-  const perfiles = obtenerPerfiles();
-  const perfil = perfiles[idDueno];
+export async function obtenerTodosLosEventos(userId: string | null = null): Promise<EventoCompleto[]> {
+  const { data: eventos, error } = await supabase
+    .from('Eventos')
+    .select('id, nombre, fecha_hora, direccion, admision, asistentes, creador_id')
+    .order('fecha_hora', { ascending: true });
 
-  if (!perfil) {
-    return;
+  if (error) throw new Error(error.message);
+
+  const creadorIds = [...new Set((eventos ?? []).map((e) => e.creador_id as string).filter(Boolean))];
+  const nombresPorId: Record<string, string> = {};
+  if (creadorIds.length > 0) {
+    const { data: perfiles, error: errorPerfiles } = await supabase
+      .from('Perfil')
+      .select('id, nombre')
+      .in('id', creadorIds);
+    if (errorPerfiles) console.error('[Petmate] Error leyendo Perfil:', errorPerfiles.message);
+    for (const p of perfiles ?? []) {
+      nombresPorId[p.id as string] = p.nombre as string;
+    }
   }
 
-  perfiles[idDueno] = {
-    ...perfil,
-    mascotas,
-  };
+  let eventosUnidos = new Set<string>();
+  if (userId) {
+    const { data: guardados, error: errGuardados } = await supabase
+      .from('eventos_guardados')
+      .select('evento_guardado')
+      .eq('perfil_id', userId);
+    if (errGuardados) console.error('[Petmate] Error leyendo eventos_guardados:', errGuardados.message);
+    eventosUnidos = new Set((guardados ?? []).map((g) => g.evento_guardado as string));
+  }
 
-  guardarPerfiles(perfiles);
+  return (eventos ?? []).map((e) => ({
+    id: e.id as string,
+    nombre: e.nombre as string,
+    fechaHora: formatearFechaHora(e.fecha_hora as string),
+    direccion: e.direccion as string,
+    admision: (e.admision as string) ?? '',
+    asistentes: (e.asistentes as number) ?? 0,
+    creadorNombre: nombresPorId[e.creador_id as string] ?? '',
+    estaUnido: eventosUnidos.has(e.id as string),
+  }));
 }
 
-export async function guardarPerfilUsuario(perfil: PerfilUsuario) {
-  const sesion = await obtenerSesion();
+export async function toggleEventoGuardado(
+  eventoId: string,
+  yaUnido: boolean,
+): Promise<{ estaUnido: boolean; asistentes: number }> {
+  const { data: sesionData } = await supabase.auth.getSession();
+  if (!sesionData.session) throw new Error('No hay sesión activa.');
+  const userId = sesionData.session.user.id;
 
-  if (!sesion) {
-    throw new Error('No hay sesión activa.');
+  const { data: eventoActual } = await supabase
+    .from('Eventos')
+    .select('asistentes')
+    .eq('id', eventoId)
+    .maybeSingle();
+
+  const asistentesActuales = (eventoActual?.asistentes as number) ?? 0;
+
+  if (yaUnido) {
+    const { error: errDel, count } = await supabase
+      .from('eventos_guardados')
+      .delete({ count: 'exact' })
+      .eq('perfil_id', userId)
+      .eq('evento_guardado', eventoId);
+    if (errDel) throw new Error(`No se pudo salir del evento: ${errDel.message}`);
+    if (count === 0) throw new Error('No se encontró el registro. Comprueba las políticas RLS de eventos_guardados en Supabase.');
+    const nuevos = Math.max(0, asistentesActuales - 1);
+    await supabase.from('Eventos').update({ asistentes: nuevos }).eq('id', eventoId);
+    return { estaUnido: false, asistentes: nuevos };
+  } else {
+    const { error: errIns } = await supabase
+      .from('eventos_guardados')
+      .insert({ perfil_id: userId, evento_guardado: eventoId });
+    if (errIns) throw new Error(`No se pudo unir al evento: ${errIns.message}`);
+    const nuevos = asistentesActuales + 1;
+    await supabase.from('Eventos').update({ asistentes: nuevos }).eq('id', eventoId);
+    return { estaUnido: true, asistentes: nuevos };
   }
-
-  const perfiles = obtenerPerfiles();
-  perfiles[sesion.user.id] = {
-    ...perfil,
-    nombre: perfil.nombre.trim(),
-    email: perfil.email.trim().toLowerCase(),
-    eventosGuardados: perfil.eventosGuardados ?? [],
-  };
-  guardarPerfiles(perfiles);
-
-  const cuentas = obtenerCuentas();
-  const indiceCuenta = cuentas.findIndex((cuenta) => cuenta.id === sesion.user.id);
-  if (indiceCuenta >= 0) {
-    cuentas[indiceCuenta] = {
-      ...cuentas[indiceCuenta],
-      nombre: perfil.nombre.trim(),
-      email: perfil.email.trim().toLowerCase(),
-    };
-    guardarCuentas(cuentas);
-  }
-
-  guardarJson(CLAVE_SESION, {
-    user: {
-      ...sesion.user,
-      email: perfil.email.trim().toLowerCase(),
-      user_metadata: {
-        ...sesion.user.user_metadata,
-        nombre: perfil.nombre.trim(),
-      },
-    },
-  });
-
-  notificarCambioAutenticacion();
 }
 
-export async function limpiarPerfilUsuario() {
-  const sesion = await obtenerSesion();
-  if (!sesion) {
-    return;
+export async function crearEvento(datos: {
+  nombre: string;
+  fechaHora: string;
+  direccion: string;
+  admision: string;
+}): Promise<EventoCreado> {
+  const { data: sesionData } = await supabase.auth.getSession();
+  if (!sesionData.session) throw new Error('No hay sesión activa.');
+  const userId = sesionData.session.user.id;
+
+  const { data, error } = await supabase
+    .from('Eventos')
+    .insert({
+      creador_id: userId,
+      nombre: datos.nombre,
+      fecha_hora: parsearFechaHora(datos.fechaHora),
+      direccion: datos.direccion,
+      admision: datos.admision,
+      asistentes: 0,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  return {
+    id: data.id as string,
+    nombre: data.nombre as string,
+    fechaHora: formatearFechaHora(data.fecha_hora as string),
+    direccion: data.direccion as string,
+    admision: (data.admision as string) ?? '',
+    asistentes: 0,
+    maxAttendees: null,
+  };
+}
+
+export async function eliminarEventoCreado(eventoId: string): Promise<void> {
+  const { error } = await supabase.from('Eventos').delete().eq('id', eventoId);
+  if (error) throw new Error(error.message);
+}
+
+export async function toggleFavorito(establecimiento: {
+  nombre: string;
+  direccion: string;
+  admitePerrosGrandes: boolean;
+  accesoInterior: boolean;
+}): Promise<LugarFavorito[]> {
+  const { data: sesionData } = await supabase.auth.getSession();
+  if (!sesionData.session) throw new Error('No hay sesión activa.');
+  const userId = sesionData.session.user.id;
+
+  const { data: lugar, error: errorLugar } = await supabase
+    .from('Lugares')
+    .select('id')
+    .eq('nombre', establecimiento.nombre)
+    .maybeSingle();
+
+  if (errorLugar) throw new Error(errorLugar.message);
+  if (!lugar) throw new Error(`"${establecimiento.nombre}" no está en la tabla Lugares.`);
+
+  const lugarId = lugar.id as number;
+
+  const { data: favExistente } = await supabase
+    .from('Favoritos')
+    .select('id')
+    .eq('perfil_id', userId)
+    .eq('lugar_id', lugarId)
+    .maybeSingle();
+
+  if (favExistente) {
+    await supabase.from('Favoritos').delete().eq('id', favExistente.id);
+  } else {
+    const { error } = await supabase.from('Favoritos').insert({ perfil_id: userId, lugar_id: lugarId });
+    if (error) throw new Error(error.message);
   }
 
-  const perfiles = obtenerPerfiles();
-  delete perfiles[sesion.user.id];
-  guardarPerfiles(perfiles);
+  const { data: favoritosActualizados } = await supabase
+    .from('Favoritos')
+    .select('Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
+    .eq('perfil_id', userId);
 
-  const cuentas = obtenerCuentas().filter((cuenta) => cuenta.id !== sesion.user.id);
-  guardarCuentas(cuentas);
+  return (favoritosActualizados ?? [])
+    .map((f) => (f as { Lugares: Record<string, unknown> | null }).Lugares)
+    .filter((l): l is NonNullable<typeof l> => l !== null)
+    .map((l) => ({
+      id: l['nombre'] as string,
+      nombre: l['nombre'] as string,
+      direccion: l['direccion'] as string,
+      admitePerrosGrandes: l['admision_perros_grandes'] as boolean,
+      accesoInterior: l['acceso_interior'] as boolean,
+    }));
 }
