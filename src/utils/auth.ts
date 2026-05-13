@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
+import { type Establecimiento, type CategoriaEstablecimiento } from '../data/establecimientos';
 
 export type PerfilMascota = {
   id: string;
@@ -13,6 +14,7 @@ export type PerfilMascota = {
 
 export type LugarFavorito = {
   id: string;
+  lugarId?: string;
   nombre: string;
   direccion: string;
   admitePerrosGrandes: boolean;
@@ -214,7 +216,7 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
 
   const { data: favoritos } = await supabase
     .from('Favoritos')
-    .select('Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
+    .select('id, lugar_id, Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
     .eq('perfil_id', userId);
 
   const { data: eventos } = await supabase
@@ -228,7 +230,7 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
     .eq('perfil_id', userId);
 
   const eventosGuardadosRaw = (guardadosData ?? [])
-    .map((g) => (g as { Eventos: Record<string, unknown> | null }).Eventos)
+    .map((g) => (g as { Eventos: any | null }).Eventos)
     .filter((e): e is NonNullable<typeof e> => e !== null);
 
   const creadoresGuardadosIds = [
@@ -261,14 +263,19 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
       foto: m.foto ?? null,
     })),
     favoritos: (favoritos ?? [])
-      .map((f) => (f as { Lugares: Record<string, unknown> | null }).Lugares)
-      .filter((l): l is NonNullable<typeof l> => l !== null)
-      .map((l) => ({
-        id: l['nombre'] as string,
-        nombre: l['nombre'] as string,
-        direccion: l['direccion'] as string,
-        admitePerrosGrandes: l['admision_perros_grandes'] as boolean,
-        accesoInterior: l['acceso_interior'] as boolean,
+      .map((f) => ({
+        favoriteRowId: (f as { id: string }).id,
+        lugarId: String((f as { lugar_id: unknown }).lugar_id ?? ''),
+        lugar: (f as { Lugares: any | null }).Lugares,
+      }))
+      .filter((f): f is { favoriteRowId: string; lugarId: string; lugar: any } => f.lugar !== null)
+      .map((f) => ({
+        id: f.favoriteRowId,
+        lugarId: f.lugarId,
+        nombre: f.lugar['nombre'] as string,
+        direccion: f.lugar['direccion'] as string,
+        admitePerrosGrandes: f.lugar['admision_perros_grandes'] as boolean,
+        accesoInterior: f.lugar['acceso_interior'] as boolean,
       })),
     eventos: (eventos ?? []).map((e) => ({
       id: e.id,
@@ -529,17 +536,87 @@ export async function toggleFavorito(establecimiento: {
 
   const { data: favoritosActualizados } = await supabase
     .from('Favoritos')
-    .select('Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
+    .select('id, lugar_id, Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
     .eq('perfil_id', userId);
 
   return (favoritosActualizados ?? [])
-    .map((f) => (f as { Lugares: Record<string, unknown> | null }).Lugares)
-    .filter((l): l is NonNullable<typeof l> => l !== null)
-    .map((l) => ({
-      id: l['nombre'] as string,
-      nombre: l['nombre'] as string,
-      direccion: l['direccion'] as string,
-      admitePerrosGrandes: l['admision_perros_grandes'] as boolean,
-      accesoInterior: l['acceso_interior'] as boolean,
+    .map((f) => ({
+      favoriteRowId: (f as { id: string }).id,
+      lugarId: String((f as { lugar_id: unknown }).lugar_id ?? ''),
+      lugar: (f as { Lugares: any | null }).Lugares,
+    }))
+    .filter((f): f is { favoriteRowId: string; lugarId: string; lugar: any } => f.lugar !== null)
+    .map((f) => ({
+      id: f.favoriteRowId,
+      lugarId: f.lugarId,
+      nombre: f.lugar['nombre'] as string,
+      direccion: f.lugar['direccion'] as string,
+      admitePerrosGrandes: f.lugar['admision_perros_grandes'] as boolean,
+      accesoInterior: f.lugar['acceso_interior'] as boolean,
     }));
+}
+
+export async function eliminarFavorito(idFavorito: string): Promise<LugarFavorito[]> {
+  const { data: sesionData } = await supabase.auth.getSession();
+  if (!sesionData.session) throw new Error('No hay sesión activa.');
+  const userId = sesionData.session.user.id;
+
+  const { error: errorEliminar } = await supabase
+    .from('Favoritos')
+    .delete()
+    .eq('id', idFavorito)
+    .eq('perfil_id', userId);
+  if (errorEliminar) throw new Error(errorEliminar.message);
+
+  const { data: favoritosActualizados } = await supabase
+    .from('Favoritos')
+    .select('id, lugar_id, Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
+    .eq('perfil_id', userId);
+
+  return (favoritosActualizados ?? [])
+    .map((f) => ({
+      favoriteRowId: (f as { id: string }).id,
+      lugarId: String((f as { lugar_id: unknown }).lugar_id ?? ''),
+      lugar: (f as { Lugares: any | null }).Lugares,
+    }))
+    .filter((f): f is { favoriteRowId: string; lugarId: string; lugar: any } => f.lugar !== null)
+    .map((f) => ({
+      id: f.favoriteRowId,
+      lugarId: f.lugarId,
+      nombre: f.lugar['nombre'] as string,
+      direccion: f.lugar['direccion'] as string,
+      admitePerrosGrandes: f.lugar['admision_perros_grandes'] as boolean,
+      accesoInterior: f.lugar['acceso_interior'] as boolean,
+    }));
+}
+
+export async function obtenerTodosLosLugares(pagina: number, limite: number): Promise<{ lugares: Establecimiento[]; total: number }> {
+  const desde = (pagina - 1) * limite;
+  const hasta = desde + limite - 1;
+
+  const { data: lugares, error, count } = await supabase
+    .from('Lugares')
+    .select('*', { count: 'exact' })
+    .range(desde, hasta);
+
+  if (error) throw new Error(error.message);
+
+  const lugaresMapeados: Establecimiento[] = (lugares ?? []).map((l: any) => ({
+    id: String(l.id),
+    categoria: l.categoria as CategoriaEstablecimiento,
+    nombre: l.nombre,
+    descripcion: l.descripcion || '',
+    reglaMascota: l.regla_mascota || '',
+    direccion: l.direccion,
+    barrio: l.barrio || '',
+    imagen: l.imagen || '',
+    destacado: l.destacado || false,
+    color: l.color || '#1a9b8e',
+    latitud: l.latitud,
+    longitud: l.longitud,
+    admitePerrosGrandes: l.admision_perros_grandes,
+    accesoInterior: l.acceso_interior,
+  }));
+
+  return { lugares: lugaresMapeados, total: count || 0 };
 }

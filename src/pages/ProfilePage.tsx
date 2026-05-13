@@ -6,6 +6,7 @@ import { Header } from '../components/Header';
 import {
   crearEvento,
   eliminarEventoCreado,
+  eliminarFavorito,
   guardarPerfilUsuario,
   limpiarPerfilUsuario,
   limpiarSesion,
@@ -355,18 +356,21 @@ export function PaginaPerfil() {
       });
   };
 
-  const eliminarFavorito = (idFavorito: string) => {
-    setPerfil((perfilActual) =>
-      perfilActual
-        ? {
-            ...perfilActual,
-            favoritos: perfilActual.favoritos.filter((favorito) => favorito.id !== idFavorito),
-          }
-        : perfilActual,
-    );
-
-    setIdFavoritoPendienteDeBorrado(null);
-    mostrarMensajeTemporal('El favorito se ha quitado de la vista local.');
+  const handleEliminarFavorito = async (idFavorito: string) => {
+    if (!perfil) return;
+    try {
+      const favoritosActualizados = await eliminarFavorito(idFavorito);
+      setPerfil((perfilActual) =>
+        perfilActual ? { ...perfilActual, favoritos: favoritosActualizados } : perfilActual,
+      );
+      mostrarMensajeTemporal('Favorito eliminado de tu perfil.');
+    } catch (errorDesconocido: unknown) {
+      const mensajeError = errorDesconocido instanceof Error ? errorDesconocido.message : 'No se pudo eliminar el favorito.';
+      console.error('Error eliminando favorito:', errorDesconocido);
+      mostrarMensajeTemporal(mensajeError);
+    } finally {
+      setIdFavoritoPendienteDeBorrado(null);
+    }
   };
 
   const actualizarCampoNuevoEvento = (campo: keyof EventoCreado, valor: string | number | null) => {
@@ -1120,7 +1124,6 @@ export function PaginaPerfil() {
                       </div>
 
                       <h4 className="mt-3 text-lg font-bold text-gray-900">{evento.nombre}</h4>
-                      {evento.description && <p className="mt-2 text-sm text-gray-600">{evento.description}</p>}
 
                       <div className="mt-4 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
                         <span className="flex items-center gap-2">
@@ -1177,7 +1180,7 @@ export function PaginaPerfil() {
             <div className="mt-8 flex items-center justify-center gap-4">
               <button
                 type="button"
-                onClick={() => eliminarFavorito(idFavoritoPendienteDeBorrado)}
+                onClick={() => handleEliminarFavorito(idFavoritoPendienteDeBorrado)}
                 className="inline-flex items-center gap-2 rounded-full bg-[#1fa463] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#178250]"
               >
                 <Check size={18} />

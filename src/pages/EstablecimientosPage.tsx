@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Heart, MapPin, Search, ShieldCheck } from 'lucide-react';
+import { Heart, MapPin, Search, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import { Header } from '../components/Header';
 import { PetFriendlyMap } from '../components/PetFriendlyMap';
@@ -7,9 +7,10 @@ import {
   toggleFavorito as alternarFavorito,
   obtenerPerfilUsuario,
   obtenerSesion,
+  obtenerTodosLosLugares,
   type PerfilUsuario,
 } from '../utils/auth';
-import { establecimientos, type CategoriaEstablecimiento } from '../data/establecimientos';
+import { type Establecimiento, type CategoriaEstablecimiento } from '../data/establecimientos';
 
 const categorias: Array<'Todas' | CategoriaEstablecimiento> = ['Todas', 'Restaurantes', 'Ocio', 'Alojamientos'];
 const coloresCategoria: Record<'Todas' | CategoriaEstablecimiento, string> = {
@@ -26,23 +27,51 @@ export function PaginaEstablecimientos() {
   const [haySesion, setHaySesion] = useState(false);
   const [guardandoFavorito, setGuardandoFavorito] = useState<string | null>(null);
   const [mensajeBusqueda, setMensajeBusqueda] = useState('');
+  const [establecimientos, setEstablecimientos] = useState<Establecimiento[]>([]);
+  const [cargandoEstablecimientos, setCargandoEstablecimientos] = useState(true);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [totalLugares, setTotalLugares] = useState(0);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const limitePorPagina = 6;
 
   useEffect(() => {
     const cargarEstado = async () => {
-      const sesion = await obtenerSesion();
-      setHaySesion(Boolean(sesion));
+      try {
+        setErrorCarga(null);
+        setCargandoEstablecimientos(true);
 
-      if (!sesion) {
-        setPerfil(null);
-        return;
+        const { lugares, total } = await obtenerTodosLosLugares(paginaActual, limitePorPagina);
+        setEstablecimientos(lugares);
+        setTotalLugares(total);
+
+        const sesion = await obtenerSesion();
+        setHaySesion(Boolean(sesion));
+
+        if (!sesion) {
+          setPerfil(null);
+          return;
+        }
+
+        const perfilActual = await obtenerPerfilUsuario();
+        setPerfil(perfilActual);
+      } catch (error) {
+        console.error('Error cargando establecimientos o perfil:', error);
+        setErrorCarga(error instanceof Error ? error.message : String(error));
+      } finally {
+        setCargandoEstablecimientos(false);
       }
-
-      const perfilActual = await obtenerPerfilUsuario();
-      setPerfil(perfilActual);
     };
 
     cargarEstado();
-  }, []);
+  }, [paginaActual]);
+
+  const cambiarPagina = (pagina: number) => {
+    if (pagina >= 1 && pagina <= totalPaginas) {
+      setPaginaActual(pagina);
+    }
+  };
+
+  const totalPaginas = Math.ceil(totalLugares / limitePorPagina);
 
   const favoritosGuardados = useMemo(() => new Set(perfil?.favoritos.map((favorito) => favorito.nombre) ?? []), [perfil]);
 
@@ -59,7 +88,7 @@ export function PaginaEstablecimientos() {
 
       return coincideCategoria && coincideBusqueda;
     });
-  }, [busqueda, categoriaActiva]);
+  }, [busqueda, categoriaActiva, establecimientos]);
 
   useEffect(() => {
     if (!busqueda.trim()) {
@@ -137,6 +166,12 @@ export function PaginaEstablecimientos() {
             </div>
           )}
 
+          {errorCarga && (
+            <div className="mb-8 rounded-3xl border border-red-200 bg-red-50 px-6 py-5 text-center text-red-700">
+              Error cargando lugares: {errorCarga}
+            </div>
+          )}
+
           <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-lg lg:sticky lg:top-28 lg:h-fit">
               <h2 className="text-3xl font-bold text-gray-900">Mapa de ubicaciones</h2>
@@ -171,9 +206,17 @@ export function PaginaEstablecimientos() {
               </div>
             </div>
 
-            <div className="space-y-6">
-              {establecimientosFiltrados.map((establecimiento) => {
-                const estaGuardado = favoritosGuardados.has(establecimiento.nombre);
+            {cargandoEstablecimientos ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-[#1a9b8e]" />
+                  <p className="mt-4 text-gray-600">Cargando establecimientos...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {establecimientosFiltrados.map((establecimiento) => {
+                  const estaGuardado = favoritosGuardados.has(establecimiento.nombre);
 
                 return (
                   <article
@@ -258,6 +301,46 @@ export function PaginaEstablecimientos() {
                 );
               })}
             </div>
+            )}
+
+            {/* Paginación */}
+            {totalPaginas > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => cambiarPagina(paginaActual - 1)}
+                  disabled={paginaActual === 1}
+                  className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((pagina) => (
+                    <button
+                      key={pagina}
+                      onClick={() => cambiarPagina(pagina)}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                        pagina === paginaActual
+                          ? 'bg-[#1a9b8e] text-white'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pagina}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => cambiarPagina(paginaActual + 1)}
+                  disabled={paginaActual === totalPaginas}
+                  className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Siguiente
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         </section>
       </main>

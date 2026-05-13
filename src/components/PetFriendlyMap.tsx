@@ -13,6 +13,14 @@ export function PetFriendlyMap({
   puntos = establecimientos,
   altoClase = 'h-[26rem]',
 }: PetFriendlyMapProps) {
+  const puntosValidos = puntos.filter(
+    (establecimiento) =>
+      typeof establecimiento.latitud === 'number' &&
+      Number.isFinite(establecimiento.latitud) &&
+      typeof establecimiento.longitud === 'number' &&
+      Number.isFinite(establecimiento.longitud),
+  );
+
   return (
     <div className={`overflow-hidden rounded-3xl border border-gray-200 ${altoClase}`}>
       <MapContainer center={centroMadrid} zoom={12.5} scrollWheelZoom={false} className="h-full w-full">
@@ -21,7 +29,7 @@ export function PetFriendlyMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {puntos.map((establecimiento) => (
+        {puntosValidos.map((establecimiento) => (
           <CircleMarker
             key={establecimiento.id}
             center={[establecimiento.latitud, establecimiento.longitud]}
