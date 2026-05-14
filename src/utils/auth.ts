@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient.ts';
 import { type Establecimiento, type CategoriaEstablecimiento } from '../data/establecimientos';
 
 export type PerfilMascota = {
@@ -337,7 +337,7 @@ export async function guardarPerfilUsuario(perfil: PerfilUsuario) {
   for (const fila of filasAEliminar) {
     await supabase.from('eventos_guardados').delete().eq('id', fila.id);
     const { data: ev } = await supabase.from('Eventos').select('asistentes').eq('id', fila.evento_guardado).maybeSingle();
-    const nuevosAsistentes = Math.max(0, ((ev?.asistentes as number) ?? 1) - 1);
+    const nuevosAsistentes = Math.max(2, ((ev?.asistentes as number) ?? 2) - 1);
     await supabase.from('Eventos').update({ asistentes: nuevosAsistentes }).eq('id', fila.evento_guardado);
   }
 }
@@ -347,12 +347,29 @@ export async function limpiarPerfilUsuario() {
   if (!sesionData.session) return;
   const userId = sesionData.session.user.id;
 
-  await supabase.from('eventos_guardados').delete().eq('perfil_id', userId);
-  await supabase.from('Mascotas').delete().eq('dueno_id', userId);
-  await supabase.from('Eventos').delete().eq('creador_id', userId);
-  await supabase.from('Favoritos').delete().eq('perfil_id', userId);
-  await supabase.from('Perfil').delete().eq('id', userId);
-  await supabase.auth.signOut();
+  try {
+    // Eliminar todos los datos asociados del usuario
+    await supabase.from('eventos_guardados').delete().eq('perfil_id', userId);
+    await supabase.from('Mascotas').delete().eq('dueno_id', userId);
+    await supabase.from('Eventos').delete().eq('creador_id', userId);
+    await supabase.from('Favoritos').delete().eq('perfil_id', userId);
+    await supabase.from('Perfil').delete().eq('id', userId);
+
+    // Eliminar usuario de autenticación
+    await supabase.auth.admin.deleteUser(userId);
+
+    // Eliminar usuario de autenticación
+    await supabase.auth.admin.deleteUser(userId);
+
+    // Cerrar sesión
+    await supabase.auth.signOut();
+
+    // Nota: El usuario ha sido eliminado completamente de la base de datos y autenticación.
+  } catch (error) {
+    // Intentar hacer signOut incluso si hay error al eliminar datos
+    await supabase.auth.signOut();
+    throw error;
+  }
 }
 
 export async function guardarMascotas(mascotas: PerfilMascota[], idDueno: string) {
@@ -444,7 +461,7 @@ export async function toggleEventoGuardado(
       .eq('evento_guardado', eventoId);
     if (errDel) throw new Error(`No se pudo salir del evento: ${errDel.message}`);
     if (count === 0) throw new Error('No se encontró el registro. Comprueba las políticas RLS de eventos_guardados en Supabase.');
-    const nuevos = Math.max(0, asistentesActuales - 1);
+    const nuevos = Math.max(2, asistentesActuales - 1);
     await supabase.from('Eventos').update({ asistentes: nuevos }).eq('id', eventoId);
     return { estaUnido: false, asistentes: nuevos };
   } else {
@@ -476,7 +493,7 @@ export async function crearEvento(datos: {
       fecha_hora: parsearFechaHora(datos.fechaHora),
       direccion: datos.direccion,
       admision: datos.admision,
-      asistentes: 0,
+      asistentes: 2,
     })
     .select()
     .single();
@@ -489,12 +506,19 @@ export async function crearEvento(datos: {
     fechaHora: formatearFechaHora(data.fecha_hora as string),
     direccion: data.direccion as string,
     admision: (data.admision as string) ?? '',
-    asistentes: 0,
+    asistentes: 2,
     maxAttendees: null,
   };
 }
 
 export async function eliminarEventoCreado(eventoId: string): Promise<void> {
+  // Primero borrar de eventos_guardados de todos los asistentes
+  const { error: errorGuardados } = await supabase
+    .from('eventos_guardados')
+    .delete()
+    .eq('evento_guardado', eventoId);
+  if (errorGuardados) throw new Error(errorGuardados.message);
+
   const { error } = await supabase.from('Eventos').delete().eq('id', eventoId);
   if (error) throw new Error(error.message);
 }
@@ -616,7 +640,32 @@ export async function obtenerTodosLosLugares(pagina: number, limite: number): Pr
     longitud: l.longitud,
     admitePerrosGrandes: l.admision_perros_grandes,
     accesoInterior: l.acceso_interior,
+    tipoLugares: l.tipo_lugares || '',
   }));
 
   return { lugares: lugaresMapeados, total: count || 0 };
+}
+
+export const deleteAccount = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session) {
+    console.error('No hay sesión activa')
+    return
+  }
+
+  const { error, data } = await supabase.functions.invoke('delete-cuenta', {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`
+    }
+  })
+
+  if (error) {
+    const body = await (error as any).context?.text?.()
+    console.error('Error al eliminar cuenta:', error, 'Detalle:', body)
+    return
+  }
+
+  await supabase.auth.signOut()
+  window.location.href = '/'
 }

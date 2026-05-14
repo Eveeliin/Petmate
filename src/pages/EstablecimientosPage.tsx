@@ -244,6 +244,11 @@ export function PaginaEstablecimientos() {
                               <span className="rounded-full bg-[#eef7f5] px-3 py-1 text-sm font-semibold text-[#1a9b8e]">
                                 {establecimiento.categoria}
                               </span>
+                              {establecimiento.tipoLugares && (
+                                <span className="rounded-full bg-[#eef7f5] px-3 py-1 text-sm font-semibold text-[#1a9b8e]">
+                                  {establecimiento.tipoLugares}
+                                </span>
+                              )}
                               <span className="rounded-full bg-[#fffaf4] px-3 py-1 text-sm font-medium text-gray-600">
                                 {establecimiento.barrio}
                               </span>
@@ -286,7 +291,13 @@ export function PaginaEstablecimientos() {
                                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#1a9b8e]">
                                   Regla para mascotas
                                 </p>
-                                <p className="mt-2 text-base leading-relaxed text-gray-600">{establecimiento.reglaMascota}</p>
+                                <p className="mt-2 text-base leading-relaxed text-gray-600">
+                                  {establecimiento.reglaMascota}
+                                  <br />
+                                  {establecimiento.admitePerrosGrandes ? 'Permite perros grandes.' : 'No permite perros grandes.'}
+                                  {' '}
+                                  {establecimiento.accesoInterior ? 'Acceso a interiores disponible.' : 'No tiene acceso a interiores.'}
+                                </p>
                               </div>
                             </div>
                           </div>

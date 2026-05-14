@@ -5,6 +5,7 @@ import { Footer } from '../components/Footer';
 import { Header } from '../components/Header';
 import {
   crearEvento,
+  deleteAccount,
   eliminarEventoCreado,
   eliminarFavorito,
   guardarPerfilUsuario,
@@ -1214,7 +1215,7 @@ export function PaginaPerfil() {
             <div className="mt-8 flex items-center justify-center gap-4">
               <button
                 type="button"
-                onClick={eliminarCuenta}
+                onClick={deleteAccount}
                 className="inline-flex items-center gap-2 rounded-full bg-[#1fa463] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#178250]"
               >
                 <Check size={18} />

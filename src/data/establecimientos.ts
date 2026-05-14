@@ -15,6 +15,7 @@ export type Establecimiento = {
   longitud: number;
   admitePerrosGrandes: boolean;
   accesoInterior: boolean;
+  tipoLugares?: string;
 };
 
 export const establecimientos: Establecimiento[] = [
