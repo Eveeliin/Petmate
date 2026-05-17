@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Heart, MapPin, Search, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, MapPin, Search, ShieldCheck, ChevronRight } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import { Header } from '../components/Header';
 import { PetFriendlyMap } from '../components/PetFriendlyMap';
@@ -7,7 +7,7 @@ import {
   toggleFavorito as alternarFavorito,
   obtenerPerfilUsuario,
   obtenerSesion,
-  obtenerTodosLosLugares,
+  obtenerTodosLosLugaresMapa,
   type PerfilUsuario,
 } from '../utils/auth';
 import { type Establecimiento, type CategoriaEstablecimiento } from '../data/establecimientos';
@@ -30,9 +30,8 @@ export function PaginaEstablecimientos() {
   const [establecimientos, setEstablecimientos] = useState<Establecimiento[]>([]);
   const [cargandoEstablecimientos, setCargandoEstablecimientos] = useState(true);
   const [paginaActual, setPaginaActual] = useState(1);
-  const [totalLugares, setTotalLugares] = useState(0);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
-  const limitePorPagina = 6;
+  const limitePorPagina = 5;
 
   useEffect(() => {
     const cargarEstado = async () => {
@@ -40,9 +39,8 @@ export function PaginaEstablecimientos() {
         setErrorCarga(null);
         setCargandoEstablecimientos(true);
 
-        const { lugares, total } = await obtenerTodosLosLugares(paginaActual, limitePorPagina);
+        const lugares = await obtenerTodosLosLugaresMapa();
         setEstablecimientos(lugares);
-        setTotalLugares(total);
 
         const sesion = await obtenerSesion();
         setHaySesion(Boolean(sesion));
@@ -63,15 +61,13 @@ export function PaginaEstablecimientos() {
     };
 
     cargarEstado();
-  }, [paginaActual]);
+  }, []);
 
   const cambiarPagina = (pagina: number) => {
     if (pagina >= 1 && pagina <= totalPaginas) {
       setPaginaActual(pagina);
     }
   };
-
-  const totalPaginas = Math.ceil(totalLugares / limitePorPagina);
 
   const favoritosGuardados = useMemo(() => new Set(perfil?.favoritos.map((favorito) => favorito.nombre) ?? []), [perfil]);
 
@@ -89,6 +85,16 @@ export function PaginaEstablecimientos() {
       return coincideCategoria && coincideBusqueda;
     });
   }, [busqueda, categoriaActiva, establecimientos]);
+
+  const totalPaginas = Math.max(1, Math.ceil(establecimientosFiltrados.length / limitePorPagina));
+  const establecimientosPaginados = useMemo(() => {
+    const inicio = (paginaActual - 1) * limitePorPagina;
+    return establecimientosFiltrados.slice(inicio, inicio + limitePorPagina);
+  }, [establecimientosFiltrados, paginaActual]);
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [busqueda, categoriaActiva]);
 
   useEffect(() => {
     if (!busqueda.trim()) {
@@ -206,6 +212,7 @@ export function PaginaEstablecimientos() {
               </div>
             </div>
 
+            <div className="space-y-6">
             {cargandoEstablecimientos ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
@@ -215,7 +222,7 @@ export function PaginaEstablecimientos() {
               </div>
             ) : (
               <div className="space-y-6">
-                {establecimientosFiltrados.map((establecimiento) => {
+                {establecimientosPaginados.map((establecimiento) => {
                   const estaGuardado = favoritosGuardados.has(establecimiento.nombre);
 
                 return (
@@ -317,15 +324,6 @@ export function PaginaEstablecimientos() {
             {/* Paginación */}
             {totalPaginas > 1 && (
               <div className="mt-8 flex items-center justify-center gap-2">
-                <button
-                  onClick={() => cambiarPagina(paginaActual - 1)}
-                  disabled={paginaActual === 1}
-                  className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </button>
-
                 <div className="flex items-center gap-1">
                   {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((pagina) => (
                     <button
@@ -352,6 +350,7 @@ export function PaginaEstablecimientos() {
                 </button>
               </div>
             )}
+            </div>
           </div>
         </section>
       </main>

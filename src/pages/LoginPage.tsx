@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, PawPrint, UserRound } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, Lock, Mail, PawPrint, UserRound, XCircle } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { esPerfilIncompleto, iniciarSesion, obtenerPerfilUsuario, registrarCuenta } from '../utils/auth';
 
@@ -23,6 +23,29 @@ function limpiarMensajeValidacion(event: React.FormEvent<HTMLInputElement>) {
   event.currentTarget.setCustomValidity('');
 }
 
+const reglasContrasena = [
+  {
+    id: 'mayuscula',
+    texto: 'Una letra mayúscula',
+    cumple: (valor: string) => /[A-ZÁÉÍÓÚÜÑ]/.test(valor),
+  },
+  {
+    id: 'minuscula',
+    texto: 'Una letra minúscula',
+    cumple: (valor: string) => /[a-záéíóúüñ]/.test(valor),
+  },
+  {
+    id: 'numero',
+    texto: 'Un número',
+    cumple: (valor: string) => /\d/.test(valor),
+  },
+  {
+    id: 'especial',
+    texto: 'Un carácter especial',
+    cumple: (valor: string) => /[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]/.test(valor),
+  },
+];
+
 export function PaginaAcceso() {
   const [parametrosBusqueda, setParametrosBusqueda] = useSearchParams();
   const navigate = useNavigate();
@@ -41,6 +64,7 @@ export function PaginaAcceso() {
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
   const [estaEnviando, setEstaEnviando] = useState(false);
+  const contrasenaCumpleReglas = reglasContrasena.every((regla) => regla.cumple(contrasena));
 
   useEffect(() => {
     setModo(modoInicial);
@@ -70,6 +94,12 @@ export function PaginaAcceso() {
 
     if (modo === 'register' && contrasena !== confirmacionContrasena) {
       setError('Las contraseñas no coinciden.');
+      setEstaEnviando(false);
+      return;
+    }
+
+    if (modo === 'register' && !contrasenaCumpleReglas) {
+      setError('La contraseña debe cumplir todos los requisitos indicados.');
       setEstaEnviando(false);
       return;
     }
@@ -221,9 +251,9 @@ export function PaginaAcceso() {
                       onChange={(event) => setContrasena(event.target.value)}
                       onInput={limpiarMensajeValidacion}
                       onInvalid={establecerMensajeValidacionEnEspanol}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder={modo === 'register' ? 'Mínimo 8 caracteres' : 'Contraseña'}
                       className="w-full border-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
-                      minLength={6}
+                      minLength={modo === 'register' ? 8 : undefined}
                       required
                     />
                     <button
@@ -238,6 +268,23 @@ export function PaginaAcceso() {
                 </label>
 
                 {modo === 'register' && (
+                  <ul className="space-y-2 rounded-2xl bg-gray-50 px-4 py-3 text-sm">
+                    {reglasContrasena.map((regla) => {
+                      const cumple = regla.cumple(contrasena);
+                      return (
+                        <li
+                          key={regla.id}
+                          className={`flex items-center gap-2 font-medium ${cumple ? 'text-emerald-700' : 'text-red-700'}`}
+                        >
+                          {cumple ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                          {regla.texto}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+
+                {modo === 'register' && (
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-gray-700">Confirmar contraseña</span>
                     <div className="flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus-within:border-[#ff8c42] focus-within:ring-2 focus-within:ring-[#ff8c42]/15">
@@ -250,7 +297,7 @@ export function PaginaAcceso() {
                         onInvalid={establecerMensajeValidacionEnEspanol}
                         placeholder="Repite tu contraseña"
                         className="w-full border-none bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
-                        minLength={6}
+                        minLength={8}
                         required
                       />
                       <button

@@ -14,7 +14,7 @@ export type PerfilMascota = {
 
 export type LugarFavorito = {
   id: string;
-  lugarId?: string;
+  idLugar?: string;
   nombre: string;
   direccion: string;
   admitePerrosGrandes: boolean;
@@ -28,11 +28,11 @@ export type EventoCreado = {
   direccion: string;
   admision?: string | null;
   asistentes?: number | null;
-  maxAttendees?: number | null;
+  maximoAsistentes?: number | null;
 };
 
 export type EventoGuardado = EventoCreado & {
-  organizer?: string;
+  organizador?: string;
 };
 
 export type EventoCompleto = {
@@ -198,12 +198,12 @@ export async function asegurarPerfilBase({
 export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
   const { data: sesionData } = await supabase.auth.getSession();
   if (!sesionData.session) return null;
-  const userId = sesionData.session.user.id;
+  const idUsuario = sesionData.session.user.id;
 
   const { data: perfil, error: errorPerfil } = await supabase
     .from('Perfil')
     .select('*')
-    .eq('id', userId)
+    .eq('id', idUsuario)
     .maybeSingle();
 
   if (errorPerfil) throw new Error(errorPerfil.message);
@@ -212,22 +212,22 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
   const { data: mascotas } = await supabase
     .from('Mascotas')
     .select('*')
-    .eq('dueno_id', userId);
+    .eq('dueno_id', idUsuario);
 
   const { data: favoritos } = await supabase
     .from('Favoritos')
     .select('id, lugar_id, Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
-    .eq('perfil_id', userId);
+    .eq('perfil_id', idUsuario);
 
   const { data: eventos } = await supabase
     .from('Eventos')
     .select('*')
-    .eq('creador_id', userId);
+    .eq('creador_id', idUsuario);
 
   const { data: guardadosData } = await supabase
     .from('eventos_guardados')
     .select('evento_guardado, Eventos(id, nombre, fecha_hora, direccion, admision, asistentes, creador_id)')
-    .eq('perfil_id', userId);
+    .eq('perfil_id', idUsuario);
 
   const eventosGuardadosRaw = (guardadosData ?? [])
     .map((g) => (g as { Eventos: any | null }).Eventos)
@@ -264,14 +264,14 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
     })),
     favoritos: (favoritos ?? [])
       .map((f) => ({
-        favoriteRowId: (f as { id: string }).id,
-        lugarId: String((f as { lugar_id: unknown }).lugar_id ?? ''),
+        idFavorito: (f as { id: string }).id,
+        idLugar: String((f as { lugar_id: unknown }).lugar_id ?? ''),
         lugar: (f as { Lugares: any | null }).Lugares,
       }))
-      .filter((f): f is { favoriteRowId: string; lugarId: string; lugar: any } => f.lugar !== null)
+      .filter((f): f is { idFavorito: string; idLugar: string; lugar: any } => f.lugar !== null)
       .map((f) => ({
-        id: f.favoriteRowId,
-        lugarId: f.lugarId,
+        id: f.idFavorito,
+        idLugar: f.idLugar,
         nombre: f.lugar['nombre'] as string,
         direccion: f.lugar['direccion'] as string,
         admitePerrosGrandes: f.lugar['admision_perros_grandes'] as boolean,
@@ -284,7 +284,7 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
       direccion: e.direccion,
       admision: e.admision ?? '',
       asistentes: e.asistentes ?? 1,
-      maxAttendees: null,
+      maximoAsistentes: null,
     })),
     eventosGuardados: eventosGuardadosRaw.map((e) => ({
       id: e['id'] as string,
@@ -293,8 +293,8 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
       direccion: e['direccion'] as string,
       admision: (e['admision'] as string) ?? '',
       asistentes: (e['asistentes'] as number) ?? 0,
-      maxAttendees: null,
-      organizer: nombresGuardadosPorId[e['creador_id'] as string] ?? '',
+      maximoAsistentes: null,
+      organizador: nombresGuardadosPorId[e['creador_id'] as string] ?? '',
     })),
   };
 }
@@ -302,19 +302,19 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
 export async function guardarPerfilUsuario(perfil: PerfilUsuario) {
   const { data: sesionData } = await supabase.auth.getSession();
   if (!sesionData.session) throw new Error('No hay sesión activa.');
-  const userId = sesionData.session.user.id;
+  const idUsuario = sesionData.session.user.id;
 
   const { error: errorPerfil } = await supabase
     .from('Perfil')
     .update({ nombre: perfil.nombre, avatar: perfil.avatar ?? null })
-    .eq('id', userId);
+    .eq('id', idUsuario);
   if (errorPerfil) throw new Error(errorPerfil.message);
 
-  await supabase.from('Mascotas').delete().eq('dueno_id', userId);
+  await supabase.from('Mascotas').delete().eq('dueno_id', idUsuario);
   if (perfil.mascotas.length > 0) {
     const { error: errorMascotas } = await supabase.from('Mascotas').insert(
       perfil.mascotas.map((m) => ({
-        dueno_id: userId,
+        dueno_id: idUsuario,
         nombre: m.nombre,
         raza: m.raza || null,
         peso: m.peso ?? null,
@@ -331,7 +331,7 @@ export async function guardarPerfilUsuario(perfil: PerfilUsuario) {
   const { data: guardadosDB } = await supabase
     .from('eventos_guardados')
     .select('id, evento_guardado')
-    .eq('perfil_id', userId);
+    .eq('perfil_id', idUsuario);
 
   const filasAEliminar = (guardadosDB ?? []).filter((g) => !idsGuardados.has(g.evento_guardado as string));
   for (const fila of filasAEliminar) {
@@ -345,21 +345,21 @@ export async function guardarPerfilUsuario(perfil: PerfilUsuario) {
 export async function limpiarPerfilUsuario() {
   const { data: sesionData } = await supabase.auth.getSession();
   if (!sesionData.session) return;
-  const userId = sesionData.session.user.id;
+  const idUsuario = sesionData.session.user.id;
 
   try {
     // Eliminar todos los datos asociados del usuario
-    await supabase.from('eventos_guardados').delete().eq('perfil_id', userId);
-    await supabase.from('Mascotas').delete().eq('dueno_id', userId);
-    await supabase.from('Eventos').delete().eq('creador_id', userId);
-    await supabase.from('Favoritos').delete().eq('perfil_id', userId);
-    await supabase.from('Perfil').delete().eq('id', userId);
+    await supabase.from('eventos_guardados').delete().eq('perfil_id', idUsuario);
+    await supabase.from('Mascotas').delete().eq('dueno_id', idUsuario);
+    await supabase.from('Eventos').delete().eq('creador_id', idUsuario);
+    await supabase.from('Favoritos').delete().eq('perfil_id', idUsuario);
+    await supabase.from('Perfil').delete().eq('id', idUsuario);
 
     // Eliminar usuario de autenticación
-    await supabase.auth.admin.deleteUser(userId);
+    await supabase.auth.admin.deleteUser(idUsuario);
 
     // Eliminar usuario de autenticación
-    await supabase.auth.admin.deleteUser(userId);
+    await supabase.auth.admin.deleteUser(idUsuario);
 
     // Cerrar sesión
     await supabase.auth.signOut();
@@ -394,7 +394,7 @@ export function esPerfilIncompleto(perfil: PerfilUsuario | null) {
   return !perfil || !perfil.nombre || !perfil.nombre.trim();
 }
 
-export async function obtenerTodosLosEventos(userId: string | null = null): Promise<EventoCompleto[]> {
+export async function obtenerTodosLosEventos(idUsuario: string | null = null): Promise<EventoCompleto[]> {
   const { data: eventos, error } = await supabase
     .from('Eventos')
     .select('id, nombre, fecha_hora, direccion, admision, asistentes, creador_id')
@@ -416,11 +416,11 @@ export async function obtenerTodosLosEventos(userId: string | null = null): Prom
   }
 
   let eventosUnidos = new Set<string>();
-  if (userId) {
+  if (idUsuario) {
     const { data: guardados, error: errGuardados } = await supabase
       .from('eventos_guardados')
       .select('evento_guardado')
-      .eq('perfil_id', userId);
+      .eq('perfil_id', idUsuario);
     if (errGuardados) console.error('[Petmate] Error leyendo eventos_guardados:', errGuardados.message);
     eventosUnidos = new Set((guardados ?? []).map((g) => g.evento_guardado as string));
   }
@@ -438,17 +438,17 @@ export async function obtenerTodosLosEventos(userId: string | null = null): Prom
 }
 
 export async function toggleEventoGuardado(
-  eventoId: string,
+  idEvento: string,
   yaUnido: boolean,
 ): Promise<{ estaUnido: boolean; asistentes: number }> {
   const { data: sesionData } = await supabase.auth.getSession();
   if (!sesionData.session) throw new Error('No hay sesión activa.');
-  const userId = sesionData.session.user.id;
+  const idUsuario = sesionData.session.user.id;
 
   const { data: eventoActual } = await supabase
     .from('Eventos')
     .select('asistentes')
-    .eq('id', eventoId)
+    .eq('id', idEvento)
     .maybeSingle();
 
   const asistentesActuales = (eventoActual?.asistentes as number) ?? 0;
@@ -457,20 +457,20 @@ export async function toggleEventoGuardado(
     const { error: errDel, count } = await supabase
       .from('eventos_guardados')
       .delete({ count: 'exact' })
-      .eq('perfil_id', userId)
-      .eq('evento_guardado', eventoId);
+      .eq('perfil_id', idUsuario)
+      .eq('evento_guardado', idEvento);
     if (errDel) throw new Error(`No se pudo salir del evento: ${errDel.message}`);
     if (count === 0) throw new Error('No se encontró el registro. Comprueba las políticas RLS de eventos_guardados en Supabase.');
     const nuevos = Math.max(2, asistentesActuales - 1);
-    await supabase.from('Eventos').update({ asistentes: nuevos }).eq('id', eventoId);
+    await supabase.from('Eventos').update({ asistentes: nuevos }).eq('id', idEvento);
     return { estaUnido: false, asistentes: nuevos };
   } else {
     const { error: errIns } = await supabase
       .from('eventos_guardados')
-      .insert({ perfil_id: userId, evento_guardado: eventoId });
+      .insert({ perfil_id: idUsuario, evento_guardado: idEvento });
     if (errIns) throw new Error(`No se pudo unir al evento: ${errIns.message}`);
     const nuevos = asistentesActuales + 1;
-    await supabase.from('Eventos').update({ asistentes: nuevos }).eq('id', eventoId);
+    await supabase.from('Eventos').update({ asistentes: nuevos }).eq('id', idEvento);
     return { estaUnido: true, asistentes: nuevos };
   }
 }
@@ -483,12 +483,12 @@ export async function crearEvento(datos: {
 }): Promise<EventoCreado> {
   const { data: sesionData } = await supabase.auth.getSession();
   if (!sesionData.session) throw new Error('No hay sesión activa.');
-  const userId = sesionData.session.user.id;
+  const idUsuario = sesionData.session.user.id;
 
   const { data, error } = await supabase
     .from('Eventos')
     .insert({
-      creador_id: userId,
+      creador_id: idUsuario,
       nombre: datos.nombre,
       fecha_hora: parsearFechaHora(datos.fechaHora),
       direccion: datos.direccion,
@@ -507,19 +507,50 @@ export async function crearEvento(datos: {
     direccion: data.direccion as string,
     admision: (data.admision as string) ?? '',
     asistentes: 2,
-    maxAttendees: null,
+    maximoAsistentes: null,
   };
 }
 
-export async function eliminarEventoCreado(eventoId: string): Promise<void> {
+export async function editarEventoCreado(datos: EventoCreado): Promise<EventoCreado> {
+  const { data: sesionData } = await supabase.auth.getSession();
+  if (!sesionData.session) throw new Error('No hay sesiÃ³n activa.');
+  const idUsuario = sesionData.session.user.id;
+
+  const { data, error } = await supabase
+    .from('Eventos')
+    .update({
+      nombre: datos.nombre,
+      fecha_hora: parsearFechaHora(datos.fechaHora),
+      direccion: datos.direccion,
+      admision: datos.admision ?? 'Cualquier Mascota',
+    })
+    .eq('id', datos.id)
+    .eq('creador_id', idUsuario)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  return {
+    id: data.id as string,
+    nombre: data.nombre as string,
+    fechaHora: formatearFechaHora(data.fecha_hora as string),
+    direccion: data.direccion as string,
+    admision: (data.admision as string) ?? '',
+    asistentes: (data.asistentes as number) ?? datos.asistentes ?? 0,
+    maximoAsistentes: datos.maximoAsistentes ?? null,
+  };
+}
+
+export async function eliminarEventoCreado(idEvento: string): Promise<void> {
   // Primero borrar de eventos_guardados de todos los asistentes
   const { error: errorGuardados } = await supabase
     .from('eventos_guardados')
     .delete()
-    .eq('evento_guardado', eventoId);
+    .eq('evento_guardado', idEvento);
   if (errorGuardados) throw new Error(errorGuardados.message);
 
-  const { error } = await supabase.from('Eventos').delete().eq('id', eventoId);
+  const { error } = await supabase.from('Eventos').delete().eq('id', idEvento);
   if (error) throw new Error(error.message);
 }
 
@@ -531,7 +562,7 @@ export async function toggleFavorito(establecimiento: {
 }): Promise<LugarFavorito[]> {
   const { data: sesionData } = await supabase.auth.getSession();
   if (!sesionData.session) throw new Error('No hay sesión activa.');
-  const userId = sesionData.session.user.id;
+  const idUsuario = sesionData.session.user.id;
 
   const { data: lugar, error: errorLugar } = await supabase
     .from('Lugares')
@@ -542,37 +573,37 @@ export async function toggleFavorito(establecimiento: {
   if (errorLugar) throw new Error(errorLugar.message);
   if (!lugar) throw new Error(`"${establecimiento.nombre}" no está en la tabla Lugares.`);
 
-  const lugarId = lugar.id as number;
+  const idLugar = lugar.id as number;
 
   const { data: favExistente } = await supabase
     .from('Favoritos')
     .select('id')
-    .eq('perfil_id', userId)
-    .eq('lugar_id', lugarId)
+    .eq('perfil_id', idUsuario)
+    .eq('lugar_id', idLugar)
     .maybeSingle();
 
   if (favExistente) {
     await supabase.from('Favoritos').delete().eq('id', favExistente.id);
   } else {
-    const { error } = await supabase.from('Favoritos').insert({ perfil_id: userId, lugar_id: lugarId });
+    const { error } = await supabase.from('Favoritos').insert({ perfil_id: idUsuario, lugar_id: idLugar });
     if (error) throw new Error(error.message);
   }
 
   const { data: favoritosActualizados } = await supabase
     .from('Favoritos')
     .select('id, lugar_id, Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
-    .eq('perfil_id', userId);
+    .eq('perfil_id', idUsuario);
 
   return (favoritosActualizados ?? [])
     .map((f) => ({
-      favoriteRowId: (f as { id: string }).id,
-      lugarId: String((f as { lugar_id: unknown }).lugar_id ?? ''),
+      idFavorito: (f as { id: string }).id,
+      idLugar: String((f as { lugar_id: unknown }).lugar_id ?? ''),
       lugar: (f as { Lugares: any | null }).Lugares,
     }))
-    .filter((f): f is { favoriteRowId: string; lugarId: string; lugar: any } => f.lugar !== null)
+    .filter((f): f is { idFavorito: string; idLugar: string; lugar: any } => f.lugar !== null)
     .map((f) => ({
-      id: f.favoriteRowId,
-      lugarId: f.lugarId,
+      id: f.idFavorito,
+      idLugar: f.idLugar,
       nombre: f.lugar['nombre'] as string,
       direccion: f.lugar['direccion'] as string,
       admitePerrosGrandes: f.lugar['admision_perros_grandes'] as boolean,
@@ -583,30 +614,30 @@ export async function toggleFavorito(establecimiento: {
 export async function eliminarFavorito(idFavorito: string): Promise<LugarFavorito[]> {
   const { data: sesionData } = await supabase.auth.getSession();
   if (!sesionData.session) throw new Error('No hay sesión activa.');
-  const userId = sesionData.session.user.id;
+  const idUsuario = sesionData.session.user.id;
 
   const { error: errorEliminar } = await supabase
     .from('Favoritos')
     .delete()
     .eq('id', idFavorito)
-    .eq('perfil_id', userId);
+    .eq('perfil_id', idUsuario);
   if (errorEliminar) throw new Error(errorEliminar.message);
 
   const { data: favoritosActualizados } = await supabase
     .from('Favoritos')
     .select('id, lugar_id, Lugares(id, nombre, direccion, imagen, descripcion, admision_perros_grandes, acceso_interior)')
-    .eq('perfil_id', userId);
+    .eq('perfil_id', idUsuario);
 
   return (favoritosActualizados ?? [])
     .map((f) => ({
-      favoriteRowId: (f as { id: string }).id,
-      lugarId: String((f as { lugar_id: unknown }).lugar_id ?? ''),
+      idFavorito: (f as { id: string }).id,
+      idLugar: String((f as { lugar_id: unknown }).lugar_id ?? ''),
       lugar: (f as { Lugares: any | null }).Lugares,
     }))
-    .filter((f): f is { favoriteRowId: string; lugarId: string; lugar: any } => f.lugar !== null)
+    .filter((f): f is { idFavorito: string; idLugar: string; lugar: any } => f.lugar !== null)
     .map((f) => ({
-      id: f.favoriteRowId,
-      lugarId: f.lugarId,
+      id: f.idFavorito,
+      idLugar: f.idLugar,
       nombre: f.lugar['nombre'] as string,
       direccion: f.lugar['direccion'] as string,
       admitePerrosGrandes: f.lugar['admision_perros_grandes'] as boolean,
@@ -614,20 +645,54 @@ export async function eliminarFavorito(idFavorito: string): Promise<LugarFavorit
     }));
 }
 
-export async function obtenerTodosLosLugares(pagina: number, limite: number): Promise<{ lugares: Establecimiento[]; total: number }> {
-  const desde = (pagina - 1) * limite;
-  const hasta = desde + limite - 1;
+const coloresPorCategoria: Record<CategoriaEstablecimiento, string> = {
+  Restaurantes: '#1a9b8e',
+  Ocio: '#ff8c42',
+  Alojamientos: '#7ab851',
+};
 
-  const { data: lugares, error, count } = await supabase
-    .from('Lugares')
-    .select('*', { count: 'exact' })
-    .range(desde, hasta);
+const coordenadasPorLugar: Record<string, { latitud: number; longitud: number }> = {
+  'Parque del Retiro': { latitud: 40.4197, longitud: -3.6887 },
+  'Casa de Campo': { latitud: 40.4193, longitud: -3.7615 },
+  'Centro Canino Madrid Sur': { latitud: 40.3691, longitud: -3.7016 },
+  'Parque Juan Carlos I': { latitud: 40.4619, longitud: -3.6099 },
+  'Café Pet Friendly Madrid': { latitud: 40.4254, longitud: -3.7009 },
+  'Clínica Veterinaria Centro': { latitud: 40.4079, longitud: -3.7114 },
+  'IFEMA Madrid': { latitud: 40.4656, longitud: -3.6178 },
+  'Parque Lineal del Manzanares': { latitud: 40.3695, longitud: -3.6857 },
+  'Centro de Adopción Animal Madrid': { latitud: 40.3774, longitud: -3.7784 },
+  'Residencia Canina HappyDog': { latitud: 40.3313, longitud: -3.7716 },
+  'El Perro y la Galleta': { latitud: 40.4259, longitud: -3.6878 },
+  'Café del Art': { latitud: 40.4139, longitud: -3.6986 },
+  'Rías Bajas': { latitud: 40.4447, longitud: -3.6725 },
+  'Urban Safari': { latitud: 40.4049, longitud: -3.6993 },
+  'Autocine Madrid RACE': { latitud: 40.5043, longitud: -3.6762 },
+  'B&B HOTEL Madrid Centro Puerta del Sol': { latitud: 40.4169, longitud: -3.7035 },
+  'Only YOU Hotel Atocha': { latitud: 40.4078, longitud: -3.6901 },
+};
 
-  if (error) throw new Error(error.message);
+function normalizarNumero(valor: unknown): number {
+  if (typeof valor === 'number') return valor;
+  if (typeof valor === 'string') return Number(valor.replace(',', '.'));
+  return Number.NaN;
+}
 
-  const lugaresMapeados: Establecimiento[] = (lugares ?? []).map((l: any) => ({
+function normalizarCategoria(valor: unknown): CategoriaEstablecimiento {
+  const categoria = String(valor ?? '').trim().toLowerCase();
+  if (categoria.startsWith('restaurante')) return 'Restaurantes';
+  if (categoria.startsWith('alojamiento')) return 'Alojamientos';
+  return 'Ocio';
+}
+
+function mapearLugar(l: any): Establecimiento {
+  const categoria = normalizarCategoria(l.categoria ?? l.tipo_lugares);
+  const coordenadasRespaldo = coordenadasPorLugar[l.nombre] ?? { latitud: Number.NaN, longitud: Number.NaN };
+  const latitud = normalizarNumero(l.latitud ?? l.Latitud ?? l.latitude ?? l.lat);
+  const longitud = normalizarNumero(l.longitud ?? l.Longitud ?? l.longitude ?? l.lng ?? l.lon);
+
+  return {
     id: String(l.id),
-    categoria: l.categoria as CategoriaEstablecimiento,
+    categoria,
     nombre: l.nombre,
     descripcion: l.descripcion || '',
     reglaMascota: l.regla_mascota || '',
@@ -635,34 +700,43 @@ export async function obtenerTodosLosLugares(pagina: number, limite: number): Pr
     barrio: l.barrio || '',
     imagen: l.imagen || '',
     destacado: l.destacado || false,
-    color: l.color || '#1a9b8e',
-    latitud: l.latitud,
-    longitud: l.longitud,
-    admitePerrosGrandes: l.admision_perros_grandes,
-    accesoInterior: l.acceso_interior,
+    color: l.color || coloresPorCategoria[categoria] || '#1a9b8e',
+    latitud: Number.isFinite(latitud) ? latitud : coordenadasRespaldo.latitud,
+    longitud: Number.isFinite(longitud) ? longitud : coordenadasRespaldo.longitud,
+    admitePerrosGrandes: Boolean(l.admision_perros_grandes),
+    accesoInterior: Boolean(l.acceso_interior),
     tipoLugares: l.tipo_lugares || '',
-  }));
-
-  return { lugares: lugaresMapeados, total: count || 0 };
+  };
 }
 
-export const deleteAccount = async () => {
-  const { data: { session } } = await supabase.auth.getSession()
+export async function obtenerTodosLosLugaresMapa(): Promise<Establecimiento[]> {
+  const { data: lugares, error } = await supabase
+    .from('Lugares')
+    .select('*')
+    .order('id', { ascending: true });
 
-  if (!session) {
+  if (error) throw new Error(error.message);
+
+  return (lugares ?? []).map(mapearLugar);
+}
+
+export const eliminarCuentaSupabase = async () => {
+  const { data: { session: sesion } } = await supabase.auth.getSession()
+
+  if (!sesion) {
     console.error('No hay sesión activa')
     return
   }
 
   const { error, data } = await supabase.functions.invoke('delete-cuenta', {
     headers: {
-      Authorization: `Bearer ${session.access_token}`
+      Authorization: `Bearer ${sesion.access_token}`
     }
   })
 
   if (error) {
-    const body = await (error as any).context?.text?.()
-    console.error('Error al eliminar cuenta:', error, 'Detalle:', body)
+    const detalleError = await (error as any).context?.text?.()
+    console.error('Error al eliminar cuenta:', error, 'Detalle:', detalleError)
     return
   }
 

@@ -51,17 +51,17 @@ export function Header() {
           </div>
 
           <nav className="hidden items-center space-x-8 md:flex">
-            <Link to="/establecimientos" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
-              Mapa
-            </Link>
-            <Link to="/eventos" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
-              Eventos
-            </Link>
-            <Link to="/#contacto" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
-              Contacto
-            </Link>
             {estaAutenticado ? (
               <>
+                <Link to="/establecimientos" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
+                  Mapa
+                </Link>
+                <Link to="/eventos" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
+                  Eventos
+                </Link>
+                <Link to="/#contacto" className="font-medium text-gray-700 transition-colors hover:text-[#1a9b8e]">
+                  Contacto
+                </Link>
                 <Link
                   to="/perfil"
                   className="flex items-center gap-2 rounded-full border-2 border-gray-200 px-6 py-2 font-medium text-gray-700 transition-all hover:border-[#1a9b8e] hover:text-[#1a9b8e]"
@@ -108,27 +108,31 @@ export function Header() {
         {menuAbierto && (
           <nav className="animate-in slide-in-from-top-4 duration-300 border-t border-gray-100 py-4 fade-in md:hidden">
             <div className="flex flex-col space-y-4">
-              <Link
-                to="/establecimientos"
-                className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
-                onClick={() => setMenuAbierto(false)}
-              >
-                Mapa
-              </Link>
-              <Link
-                to="/eventos"
-                className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
-                onClick={() => setMenuAbierto(false)}
-              >
-                Eventos
-              </Link>
-              <Link
-                to="/#contacto"
-                className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
-                onClick={() => setMenuAbierto(false)}
-              >
-                Contacto
-              </Link>
+              {estaAutenticado && (
+                <>
+                  <Link
+                    to="/establecimientos"
+                    className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
+                    onClick={() => setMenuAbierto(false)}
+                  >
+                    Mapa
+                  </Link>
+                  <Link
+                    to="/eventos"
+                    className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
+                    onClick={() => setMenuAbierto(false)}
+                  >
+                    Eventos
+                  </Link>
+                  <Link
+                    to="/#contacto"
+                    className="px-2 py-1 text-gray-700 transition-colors hover:text-[#1a9b8e]"
+                    onClick={() => setMenuAbierto(false)}
+                  >
+                    Contacto
+                  </Link>
+                </>
+              )}
               <div className="flex flex-col gap-3 pt-2">
                 {estaAutenticado ? (
                   <>

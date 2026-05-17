@@ -6,6 +6,8 @@ import { PaginaOnboarding } from './pages/OnboardingPage';
 import { PaginaPerfil } from './pages/ProfilePage';
 import { PaginaEstablecimientos } from './pages/EstablecimientosPage';
 import { PaginaEventos } from './pages/EventosPage';
+import { PaginaPrivacidad } from './pages/PrivacyPage';
+import { PaginaCookies } from './pages/CookiesPage';
 
 function GestorScroll() {
   const { hash, pathname } = useLocation();
@@ -36,6 +38,8 @@ function App() {
         <Route path="/perfil" element={<PaginaPerfil />} />
         <Route path="/establecimientos" element={<PaginaEstablecimientos />} />
         <Route path="/eventos" element={<PaginaEventos />} />
+        <Route path="/privacidad" element={<PaginaPrivacidad />} />
+        <Route path="/cookies" element={<PaginaCookies />} />
       </Routes>
     </BrowserRouter>
   );

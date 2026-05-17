@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { CalendarDays, Check, Edit3, Heart, MapPin, PawPrint, Plus, Trash2, UserRound, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 import { Header } from '../components/Header';
 import {
   crearEvento,
-  deleteAccount,
+  editarEventoCreado,
+  eliminarCuentaSupabase,
   eliminarEventoCreado,
   eliminarFavorito,
   guardarPerfilUsuario,
@@ -54,7 +55,7 @@ function crearEventoVacio(): EventoCreado {
     fechaHora: '',
     direccion: '',
     admision: 'Cualquier Mascota',
-    maxAttendees: null,
+    maximoAsistentes: null,
   };
 }
 
@@ -108,12 +109,22 @@ function normalizarHoraEntrada(valor: string) {
   return formatearHoraEntrada(valor);
 }
 
+function separarFechaHoraEvento(fechaHora: string) {
+  const [fecha = '', horaCompleta = ''] = fechaHora.split(' - ');
+  return {
+    fecha: fecha.trim(),
+    hora: horaCompleta.replace(' h', '').trim(),
+  };
+}
+
 export function PaginaPerfil() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
   const [cargandoPerfil, setCargandoPerfil] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [estaEditandoPerfil, setEstaEditandoPerfil] = useState(false);
+  const [perfilAntesDeEditar, setPerfilAntesDeEditar] = useState<PerfilUsuario | null>(null);
   const [idMascotaEnEdicion, setIdMascotaEnEdicion] = useState<string | null>(null);
   const [idFavoritoPendienteDeBorrado, setIdFavoritoPendienteDeBorrado] = useState<string | null>(null);
   const [modalEliminarCuentaAbierto, setModalEliminarCuentaAbierto] = useState(false);
@@ -122,6 +133,10 @@ export function PaginaPerfil() {
   const [nuevoEvento, setNuevoEvento] = useState<EventoCreado>(crearEventoVacio());
   const [fechaNuevoEvento, setFechaNuevoEvento] = useState('');
   const [horaNuevoEvento, setHoraNuevoEvento] = useState('');
+  const [idEventoEnEdicion, setIdEventoEnEdicion] = useState<string | null>(null);
+  const [eventoEnEdicion, setEventoEnEdicion] = useState<EventoCreado | null>(null);
+  const [fechaEventoEnEdicion, setFechaEventoEnEdicion] = useState('');
+  const [horaEventoEnEdicion, setHoraEventoEnEdicion] = useState('');
   const [borradoresMascota, setBorradoresMascota] = useState<Record<string, PerfilMascota>>({});
 
   useEffect(() => {
@@ -155,6 +170,15 @@ export function PaginaPerfil() {
     cargarPerfil();
   }, [navigate]);
 
+  useEffect(() => {
+    if (cargandoPerfil || location.hash !== '#tus-eventos') return;
+
+    setMostrandoFormularioEvento(true);
+    window.setTimeout(() => {
+      document.querySelector('#tus-eventos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }, [cargandoPerfil, location.hash]);
+
   const mostrarMensajeTemporal = (texto: string) => {
     setMensaje(texto);
     window.setTimeout(() => setMensaje(''), 2500);
@@ -162,6 +186,26 @@ export function PaginaPerfil() {
 
   const actualizarCampoPerfil = (campo: 'nombre' | 'avatar', valor: string | null) => {
     setPerfil((perfilActual) => (perfilActual ? { ...perfilActual, [campo]: valor } : perfilActual));
+  };
+
+  const empezarEdicionPerfil = () => {
+    if (!perfil) return;
+    setPerfilAntesDeEditar({
+      ...perfil,
+      mascotas: perfil.mascotas.map((mascota) => ({ ...mascota })),
+      favoritos: perfil.favoritos.map((favorito) => ({ ...favorito })),
+      eventos: perfil.eventos.map((evento) => ({ ...evento })),
+      eventosGuardados: perfil.eventosGuardados.map((evento) => ({ ...evento })),
+    });
+    setEstaEditandoPerfil(true);
+  };
+
+  const descartarCambiosPerfil = () => {
+    if (perfilAntesDeEditar) {
+      setPerfil(perfilAntesDeEditar);
+    }
+    setPerfilAntesDeEditar(null);
+    setEstaEditandoPerfil(false);
   };
 
   const actualizarCampoMascota = (
@@ -238,6 +282,7 @@ export function PaginaPerfil() {
       }
 
       setEstaEditandoPerfil(false);
+      setPerfilAntesDeEditar(null);
       setIdMascotaEnEdicion(null);
       mostrarMensajeTemporal('Tu perfil se ha actualizado correctamente.');
     } catch (errorDesconocido: unknown) {
@@ -357,7 +402,7 @@ export function PaginaPerfil() {
       });
   };
 
-  const handleEliminarFavorito = async (idFavorito: string) => {
+  const manejarEliminarFavorito = async (idFavorito: string) => {
     if (!perfil) return;
     try {
       const favoritosActualizados = await eliminarFavorito(idFavorito);
@@ -391,6 +436,73 @@ export function PaginaPerfil() {
 
   const normalizarHoraNuevoEvento = () => {
     setHoraNuevoEvento((horaActual) => normalizarHoraEntrada(horaActual));
+  };
+
+  const actualizarCampoEventoEnEdicion = (campo: keyof EventoCreado, valor: string | number | null) => {
+    setEventoEnEdicion((eventoActual) => (eventoActual ? { ...eventoActual, [campo]: valor } : eventoActual));
+  };
+
+  const empezarEdicionEvento = (evento: EventoCreado) => {
+    const { fecha, hora } = separarFechaHoraEvento(evento.fechaHora);
+    setIdEventoEnEdicion(evento.id);
+    setEventoEnEdicion({ ...evento });
+    setFechaEventoEnEdicion(fecha);
+    setHoraEventoEnEdicion(hora);
+  };
+
+  const cancelarEdicionEvento = () => {
+    setIdEventoEnEdicion(null);
+    setEventoEnEdicion(null);
+    setFechaEventoEnEdicion('');
+    setHoraEventoEnEdicion('');
+  };
+
+  const guardarEventoEditado = async () => {
+    if (!perfil || !eventoEnEdicion) return;
+
+    const fechaLimpia = fechaEventoEnEdicion.trim();
+    const horaLimpia = horaEventoEnEdicion.trim();
+
+    if (!eventoEnEdicion.nombre.trim() || !fechaLimpia || !horaLimpia || !eventoEnEdicion.direccion.trim()) {
+      mostrarMensajeTemporal('Completa nombre, fecha, hora y dirección del evento.');
+      return;
+    }
+
+    if (!esFechaValida(fechaLimpia)) {
+      mostrarMensajeTemporal('La fecha debe tener formato DD/MM/AAAA y ser una fecha válida.');
+      return;
+    }
+
+    if (!esHoraValida(horaLimpia)) {
+      mostrarMensajeTemporal('La hora debe tener formato 00:00 h, entre 00:00 y 23:59.');
+      return;
+    }
+
+    try {
+      const eventoActualizado = await editarEventoCreado({
+        ...eventoEnEdicion,
+        nombre: eventoEnEdicion.nombre.trim(),
+        direccion: eventoEnEdicion.direccion.trim(),
+        fechaHora: `${fechaLimpia} - ${horaLimpia} h`,
+        admision: eventoEnEdicion.admision ?? 'Cualquier Mascota',
+      });
+
+      setPerfil((perfilActual) =>
+        perfilActual
+          ? {
+              ...perfilActual,
+              eventos: perfilActual.eventos.map((evento) =>
+                evento.id === eventoActualizado.id ? eventoActualizado : evento,
+              ),
+            }
+          : perfilActual,
+      );
+      cancelarEdicionEvento();
+      mostrarMensajeTemporal('Evento actualizado correctamente.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al actualizar el evento.';
+      mostrarMensajeTemporal(msg);
+    }
   };
 
   const guardarNuevoEvento = async () => {
@@ -554,14 +666,35 @@ export function PaginaPerfil() {
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#ff8c42]">Datos personales</p>
                 <h2 className="mt-2 text-2xl font-bold text-gray-900">Tu información</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => (estaEditandoPerfil ? guardarCambiosPerfil() : setEstaEditandoPerfil(true))}
-                className="inline-flex items-center gap-2 rounded-full bg-[#fff4eb] px-4 py-2 text-sm font-semibold text-[#ff8c42] transition hover:bg-[#ffe6d4]"
-              >
-                <Edit3 size={16} />
-                {estaEditandoPerfil ? 'Guardar cambios' : 'Editar perfil'}
-              </button>
+              {estaEditandoPerfil ? (
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={guardarCambiosPerfil}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#1a9b8e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#16887d] hover:shadow-lg"
+                  >
+                    <Check size={16} />
+                    Guardar cambios
+                  </button>
+                  <button
+                    type="button"
+                    onClick={descartarCambiosPerfil}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#e25b5b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#cf4b4b] hover:shadow-lg"
+                  >
+                    <X size={16} />
+                    Descartar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={empezarEdicionPerfil}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#fff4eb] px-4 py-2 text-sm font-semibold text-[#ff8c42] transition hover:bg-[#ffe6d4]"
+                >
+                  <Edit3 size={16} />
+                  Editar perfil
+                </button>
+              )}
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -981,10 +1114,10 @@ export function PaginaPerfil() {
                     <input
                       type="number"
                       min="1"
-                      value={nuevoEvento.maxAttendees ?? ''}
+                      value={nuevoEvento.maximoAsistentes ?? ''}
                       onChange={(event) =>
                         actualizarCampoNuevoEvento(
-                          'maxAttendees',
+                          'maximoAsistentes',
                           event.target.value ? parseInt(event.target.value, 10) : null,
                         )
                       }
@@ -1043,7 +1176,7 @@ export function PaginaPerfil() {
                     <button
                       type="button"
                       onClick={guardarNuevoEvento}
-                      className="rounded-2xl bg-[#1a9b8e] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#16887d]"
+                      className="rounded-2xl bg-[#1a9b8e] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#16887d] hover:shadow-lg"
                     >
                       Guardar
                     </button>
@@ -1055,7 +1188,7 @@ export function PaginaPerfil() {
                         setFechaNuevoEvento('');
                         setHoraNuevoEvento('');
                       }}
-                      className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:border-[#1a9b8e] hover:text-[#1a9b8e]"
+                      className="rounded-2xl bg-[#e25b5b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#cf4b4b] hover:shadow-lg"
                     >
                       Cancelar
                     </button>
@@ -1073,20 +1206,100 @@ export function PaginaPerfil() {
                         <h3 className="text-lg font-bold text-gray-900">{evento.nombre || 'Evento sin nombre'}</h3>
                         <p className="mt-2 text-sm text-gray-600">{evento.direccion || 'Dirección pendiente'}</p>
                         <p className="mt-1 text-sm text-gray-600">{evento.fechaHora || 'Fecha pendiente'}</p>
-                        {evento.maxAttendees ? (
-                          <p className="mt-1 text-sm text-gray-600">Máximo {evento.maxAttendees} participantes</p>
+                        {evento.maximoAsistentes ? (
+                          <p className="mt-1 text-sm text-gray-600">Máximo {evento.maximoAsistentes} participantes</p>
                         ) : null}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => eliminarEvento(evento.id)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#fff1f1] text-[#e25b5b] transition hover:bg-[#ffe3e3]"
-                        aria-label="Eliminar evento"
-                        title="Eliminar evento"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => empezarEdicionEvento(evento)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#eef7f5] text-[#1a9b8e] transition hover:bg-[#dff3ef]"
+                          aria-label="Editar evento"
+                          title="Editar evento"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => eliminarEvento(evento.id)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#fff1f1] text-[#e25b5b] transition hover:bg-[#ffe3e3]"
+                          aria-label="Eliminar evento"
+                          title="Eliminar evento"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
+                    {idEventoEnEdicion === evento.id && eventoEnEdicion && (
+                      <div className="mt-5 rounded-3xl border border-gray-100 bg-white p-5">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <input
+                            type="text"
+                            value={eventoEnEdicion.nombre}
+                            onChange={(event) => actualizarCampoEventoEnEdicion('nombre', event.target.value)}
+                            placeholder="Nombre del evento"
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e] md:col-span-2"
+                          />
+                          <input
+                            type="text"
+                            value={fechaEventoEnEdicion}
+                            onChange={(event) => setFechaEventoEnEdicion(formatearFechaEntrada(event.target.value))}
+                            placeholder="Fecha DD/MM/AAAA"
+                            inputMode="numeric"
+                            maxLength={10}
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
+                          />
+                          <input
+                            type="text"
+                            value={horaEventoEnEdicion}
+                            onChange={(event) => setHoraEventoEnEdicion(formatearHoraEntrada(event.target.value))}
+                            onBlur={() => setHoraEventoEnEdicion((horaActual) => normalizarHoraEntrada(horaActual))}
+                            placeholder="Hora 00:00 h"
+                            inputMode="numeric"
+                            maxLength={5}
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
+                          />
+                          <input
+                            type="number"
+                            min="1"
+                            value={eventoEnEdicion.maximoAsistentes ?? ''}
+                            onChange={(event) =>
+                              actualizarCampoEventoEnEdicion(
+                                'maximoAsistentes',
+                                event.target.value ? parseInt(event.target.value, 10) : null,
+                              )
+                            }
+                            placeholder="Participantes máximos"
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
+                          />
+                          <input
+                            type="text"
+                            value={eventoEnEdicion.direccion}
+                            onChange={(event) => actualizarCampoEventoEnEdicion('direccion', event.target.value)}
+                            placeholder="Dirección"
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e] md:col-span-2"
+                          />
+                        </div>
+
+                        <div className="mt-4 flex gap-3">
+                          <button
+                            type="button"
+                            onClick={guardarEventoEditado}
+                            className="rounded-2xl bg-[#1a9b8e] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#16887d] hover:shadow-lg"
+                          >
+                            Guardar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelarEdicionEvento}
+                            className="rounded-2xl bg-[#e25b5b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#cf4b4b] hover:shadow-lg"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>
@@ -1106,9 +1319,9 @@ export function PaginaPerfil() {
                           <span className="rounded-full bg-[#eef7f5] px-3 py-1 text-xs font-semibold text-[#1a9b8e]">
                             Unido
                           </span>
-                          {evento.organizer && (
+                          {evento.organizador && (
                             <span className="rounded-full bg-[#fffaf4] px-3 py-1 text-xs font-medium text-gray-600">
-                              Organiza {evento.organizer}
+                              Organiza {evento.organizador}
                             </span>
                           )}
                         </div>
@@ -1181,7 +1394,7 @@ export function PaginaPerfil() {
             <div className="mt-8 flex items-center justify-center gap-4">
               <button
                 type="button"
-                onClick={() => handleEliminarFavorito(idFavoritoPendienteDeBorrado)}
+                onClick={() => manejarEliminarFavorito(idFavoritoPendienteDeBorrado)}
                 className="inline-flex items-center gap-2 rounded-full bg-[#1fa463] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#178250]"
               >
                 <Check size={18} />
@@ -1215,7 +1428,7 @@ export function PaginaPerfil() {
             <div className="mt-8 flex items-center justify-center gap-4">
               <button
                 type="button"
-                onClick={deleteAccount}
+                onClick={eliminarCuentaSupabase}
                 className="inline-flex items-center gap-2 rounded-full bg-[#1fa463] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#178250]"
               >
                 <Check size={18} />

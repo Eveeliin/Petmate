@@ -8,6 +8,9 @@ type PetFriendlyMapProps = {
 };
 
 const centroMadrid: [number, number] = [40.4168, -3.7038];
+const ContenedorMapa = MapContainer as React.ComponentType<any>;
+const CapaMapa = TileLayer as React.ComponentType<any>;
+const MarcadorCircular = CircleMarker as React.ComponentType<any>;
 
 export function PetFriendlyMap({
   puntos = establecimientos,
@@ -23,14 +26,14 @@ export function PetFriendlyMap({
 
   return (
     <div className={`overflow-hidden rounded-3xl border border-gray-200 ${altoClase}`}>
-      <MapContainer center={centroMadrid} zoom={12.5} scrollWheelZoom={false} className="h-full w-full">
-        <TileLayer
+      <ContenedorMapa center={centroMadrid} zoom={12.5} scrollWheelZoom={false} className="h-full w-full">
+        <CapaMapa
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
         {puntosValidos.map((establecimiento) => (
-          <CircleMarker
+          <MarcadorCircular
             key={establecimiento.id}
             center={[establecimiento.latitud, establecimiento.longitud]}
             pathOptions={{
@@ -54,9 +57,9 @@ export function PetFriendlyMap({
                 <p className="text-sm font-medium text-gray-800">{establecimiento.reglaMascota}</p>
               </div>
             </Popup>
-          </CircleMarker>
+          </MarcadorCircular>
         ))}
-      </MapContainer>
+      </ContenedorMapa>
     </div>
   );
 }

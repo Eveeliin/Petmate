@@ -1,5 +1,5 @@
 import React from 'react';
-import { Facebook, Instagram, Mail, MapPin, Phone, Twitter } from 'lucide-react';
+import { Facebook, Instagram, Mail, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const logo = '/logo_def_pm.png';
@@ -12,30 +12,36 @@ export function Footer() {
           <div className="lg:col-span-1">
             <img src={logo} alt="PetMate" className="mb-4 h-20 w-auto object-contain" />
             <p className="mb-6 text-gray-400">
-              La mejor plataforma para explorar el Madrid más pet-friendly. Alojamientos, locales y eventos en un solo
+              La mejor plataforma para explorar el Madrid mas pet-friendly. Alojamientos, locales y eventos en un solo
               lugar.
             </p>
             <div className="flex gap-4">
               <a
-                href="#"
+                href="https://facebook.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-[#1a9b8e]"
                 aria-label="Ir a Facebook"
               >
                 <Facebook size={20} />
               </a>
               <a
-                href="#"
+                href="https://instagram.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-[#1a9b8e]"
                 aria-label="Ir a Instagram"
               >
                 <Instagram size={20} />
               </a>
               <a
-                href="#"
+                href="https://x.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-[#1a9b8e]"
-                aria-label="Ir a Twitter"
+                aria-label="Ir a X"
               >
-                <Twitter size={20} />
+                <span className="text-lg font-bold leading-none">X</span>
               </a>
             </div>
           </div>
@@ -45,7 +51,7 @@ export function Footer() {
             <ul className="space-y-3">
               <li className="flex items-start gap-3 text-gray-400">
                 <MapPin size={20} className="mt-1 shrink-0 text-[#1a9b8e]" />
-                <span>Madrid, España</span>
+                <span>Madrid, Espana</span>
               </li>
               <li className="flex items-start gap-3 text-gray-400">
                 <Mail size={20} className="mt-1 shrink-0 text-[#1a9b8e]" />
@@ -58,7 +64,17 @@ export function Footer() {
         </div>
 
         <div className="border-t border-white/10 pt-8 text-center text-sm text-gray-400">
-          <p>&copy; {new Date().getFullYear()} PetMate - Todos los derechos reservados. | Políticas de privacidad | Políticas de cookies |</p>
+          <p>
+            &copy; {new Date().getFullYear()} PetMate - Todos los derechos reservados. |{' '}
+            <Link to="/privacidad" className="transition-colors hover:text-[#1a9b8e]">
+              Politicas de privacidad
+            </Link>{' '}
+            |{' '}
+            <Link to="/cookies" className="transition-colors hover:text-[#1a9b8e]">
+              Politicas de cookies
+            </Link>{' '}
+            |
+          </p>
         </div>
       </div>
     </footer>

@@ -1,15 +1,35 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Heart, MapPin, ShieldCheck } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { establecimientos } from '../data/establecimientos';
+import { obtenerSesion, suscribirCambioAutenticacion } from '../utils/auth';
 import { ImageWithFallback } from './ImageWithFallback';
 
 const establecimientosDestacados = establecimientos.slice(0, 3);
 
 export function EventsSection() {
   const [guardados, setGuardados] = useState<Set<string>>(new Set());
+  const [estaAutenticado, setEstaAutenticado] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const sincronizar = async () => {
+      const sesion = await obtenerSesion();
+      setEstaAutenticado(Boolean(sesion));
+    };
+
+    sincronizar();
+    return suscribirCambioAutenticacion(() => {
+      sincronizar();
+    });
+  }, []);
 
   const toggleGuardado = (idEstablecimiento: string) => {
+    if (!estaAutenticado) {
+      navigate('/login');
+      return;
+    }
+
     setGuardados((anteriores) => {
       const siguientes = new Set(anteriores);
       if (siguientes.has(idEstablecimiento)) {
@@ -90,7 +110,7 @@ export function EventsSection() {
                 </div>
 
                 <Link
-                  to="/establecimientos"
+                  to={estaAutenticado ? '/establecimientos' : '/login'}
                   className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#1a9b8e] to-[#7ab851] py-3 font-medium text-white transition-all hover:shadow-lg"
                 >
                   Ver establecimiento
