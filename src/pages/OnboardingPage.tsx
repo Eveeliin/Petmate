@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, PawPrint, Plus, Sparkles, UserRound } from 'lucide-react';
+import { ArrowLeft, MapPin, PawPrint, Plus, Sparkles, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   guardarPerfilUsuario,
@@ -12,15 +12,6 @@ import {
 
 const logo = '/logo_def_pm.png';
 const nivelesTamano = ['Pequeño', 'Mediano', 'Grande', 'Muy grande'] as const;
-
-function leerArchivoComoDataUrl(archivo: File) {
-  return new Promise<string>((resolve, reject) => {
-    const lector = new FileReader();
-    lector.onload = () => resolve(typeof lector.result === 'string' ? lector.result : '');
-    lector.onerror = () => reject(new Error('No se pudo leer el archivo.'));
-    lector.readAsDataURL(archivo);
-  });
-}
 
 function crearMascotaVacia(): PerfilMascota {
   return {
@@ -65,10 +56,13 @@ export function PaginaOnboarding() {
         setPerfil({
           nombre: nombreSugerido,
           email: sesionActiva.user.email ?? '',
+          zonaHabitual: '',
+          biografia: '',
           avatar: null,
           mascotas: [crearMascotaVacia()],
           favoritos: [],
           eventos: [],
+          eventosGuardados: [],
         });
       }
 
@@ -82,7 +76,7 @@ export function PaginaOnboarding() {
     return null;
   }
 
-  const actualizarCampoPerfil = (campo: 'nombre' | 'avatar', valor: string | null) => {
+  const actualizarCampoPerfil = (campo: 'nombre' | 'zonaHabitual' | 'biografia', valor: string) => {
     setPerfil((perfilActual) => (perfilActual ? { ...perfilActual, [campo]: valor } : perfilActual));
   };
 
@@ -132,34 +126,6 @@ export function PaginaOnboarding() {
     });
   };
 
-  const manejarArchivoAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const archivo = event.target.files?.[0];
-    if (!archivo) return;
-
-    try {
-      const dataUrl = await leerArchivoComoDataUrl(archivo);
-      actualizarCampoPerfil('avatar', dataUrl);
-    } catch {
-      setError('No se pudo cargar la imagen del avatar.');
-    } finally {
-      event.target.value = '';
-    }
-  };
-
-  const manejarArchivoMascota = async (idMascota: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const archivo = event.target.files?.[0];
-    if (!archivo) return;
-
-    try {
-      const dataUrl = await leerArchivoComoDataUrl(archivo);
-      actualizarCampoMascota(idMascota, 'foto', dataUrl);
-    } catch {
-      setError('No se pudo cargar la foto de la mascota.');
-    } finally {
-      event.target.value = '';
-    }
-  };
-
   const manejarEnvio = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
@@ -179,7 +145,7 @@ export function PaginaOnboarding() {
       );
 
       if (mascotaIncompleta) {
-        setError('Completa todos los campos obligatorios de cada mascota que quieras anadir.');
+        setError('Completa todos los campos obligatorios de cada mascota que quieras añadir.');
         return;
       }
     }
@@ -187,6 +153,8 @@ export function PaginaOnboarding() {
     const perfilSanitizado: PerfilUsuario = {
       ...perfil,
       nombre: perfil.nombre.trim(),
+      zonaHabitual: perfil.zonaHabitual?.trim() ?? '',
+      biografia: perfil.biografia?.trim() ?? '',
       avatar: perfil.avatar?.trim() ? perfil.avatar.trim() : null,
       mascotas: hayMascotaValida
         ? perfil.mascotas
@@ -212,7 +180,7 @@ export function PaginaOnboarding() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(26,155,142,0.16),_transparent_38%),linear-gradient(180deg,#f5fcfa_0%,#ffffff_40%,#fff8f2_100%)]">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-10">
         <div className="mb-8 flex items-center">
           <button
             type="button"
@@ -224,15 +192,15 @@ export function PaginaOnboarding() {
           </button>
         </div>
 
-        <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr]">
           <section className="hidden lg:block">
-            <div className="sticky top-24 rounded-[2rem] bg-gradient-to-br from-[#1a9b8e] via-[#228b84] to-[#7ab851] p-8 text-white shadow-[0_28px_90px_rgba(26,155,142,0.25)]">
+            <div className="sticky top-10 min-h-[680px] rounded-[2rem] bg-gradient-to-br from-[#1a9b8e] via-[#228b84] to-[#7ab851] p-10 text-white shadow-[0_28px_90px_rgba(26,155,142,0.25)]">
               <img src={logo} alt="PetMate" className="h-20 w-auto" />
 
-              <div className="mt-8 space-y-5">
+              <div className="mt-20 space-y-6">
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-2 text-sm font-medium text-white/90">
                   <Sparkles size={16} />
-                  Ya casi esta todo listo
+                  Ya casi está todo listo
                 </span>
 
                 <h1 className="text-4xl font-bold leading-tight">
@@ -240,34 +208,55 @@ export function PaginaOnboarding() {
                 </h1>
 
                 <p className="text-base leading-relaxed text-white/85">
-                  Anade tus datos y los de tus mascotas para tener una experiencia mas util desde el primer momento.
+                  Añade tus datos y los de tus mascotas para tener una experiencia más útil desde el primer momento.
                 </p>
+              </div>
+
+              <div className="mt-14 space-y-5">
+                <div className="rounded-3xl bg-white/15 p-6 backdrop-blur">
+                  <div className="text-sm font-bold uppercase tracking-[0.24em] text-white/70">Paso 1</div>
+                  <p className="mt-3 text-sm leading-relaxed text-white/90">
+                    Cuéntanos quién eres y en qué zona te mueves habitualmente.
+                  </p>
+                </div>
+                <div className="rounded-3xl bg-white/15 p-6 backdrop-blur">
+                  <div className="text-sm font-bold uppercase tracking-[0.24em] text-white/70">Paso 2</div>
+                  <p className="mt-3 text-sm leading-relaxed text-white/90">
+                    Añade una o varias mascotas para personalizar mejor tu espacio.
+                  </p>
+                </div>
+                <div className="rounded-3xl bg-white/15 p-6 backdrop-blur">
+                  <div className="text-sm font-bold uppercase tracking-[0.24em] text-white/70">Paso 3</div>
+                  <p className="mt-3 text-sm leading-relaxed text-white/90">
+                    Guarda tu información y entra con tu perfil listo para empezar.
+                  </p>
+                </div>
               </div>
             </div>
           </section>
 
           <section>
-            <div className="rounded-[2rem] border border-white/70 bg-white/90 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.10)] backdrop-blur xl:p-8">
+            <div className="rounded-[2rem] border border-white/70 bg-white/90 p-8 shadow-[0_30px_80px_rgba(15,23,42,0.10)] backdrop-blur xl:p-10">
               <div className="flex flex-col gap-3">
                 <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#eef7f5] px-4 py-2 text-sm font-semibold text-[#1a9b8e]">
                   <UserRound size={16} />
-                  Configuracion inicial
+                  Configuración inicial
                 </span>
-                <h2 className="text-3xl font-bold text-gray-900">Vamos a preparar tu cuenta</h2>
-                <p className="text-sm leading-relaxed text-gray-600">
-                  Rellena lo esencial ahora y podras editarlo mas adelante desde tu perfil.
+                <h2 className="text-4xl font-bold text-gray-900">Vamos a preparar tu cuenta</h2>
+                <p className="text-base leading-relaxed text-gray-600">
+                  Rellena lo esencial ahora y podrás editarlo más adelante desde tu perfil.
                 </p>
               </div>
 
               <form onSubmit={manejarEnvio} className="mt-8 space-y-8">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.24em] text-[#ff8c42]">
-                    <UserRound size={16} />
-                    Tu informacion
+                    <MapPin size={16} />
+                    Tus datos
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="block">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block md:col-span-2">
                       <span className="mb-2 block text-sm font-medium text-gray-700">Nombre visible</span>
                       <input
                         type="text"
@@ -279,7 +268,7 @@ export function PaginaOnboarding() {
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-gray-700">Correo electronico</span>
+                      <span className="mb-2 block text-sm font-medium text-gray-700">Correo electrónico</span>
                       <input
                         type="email"
                         value={perfil.email}
@@ -288,33 +277,27 @@ export function PaginaOnboarding() {
                       />
                     </label>
 
-                    <div className="rounded-3xl border border-gray-100 bg-[#fcfefd] p-4">
-                      <span className="mb-3 block text-sm font-medium text-gray-700">Avatar</span>
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl bg-[#eef7f5]">
-                          {perfil.avatar ? (
-                            <img src={perfil.avatar} alt="Avatar" className="h-full w-full object-cover" />
-                          ) : (
-                            <UserRound size={32} className="text-[#1a9b8e]" />
-                          )}
-                        </div>
-                        <div className="flex-1 space-y-3">
-                          <input
-                            type="text"
-                            value={perfil.avatar ?? ''}
-                            onChange={(event) => actualizarCampoPerfil('avatar', event.target.value)}
-                            placeholder="URL del avatar"
-                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
-                          />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={manejarArchivoAvatar}
-                            className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-[#eef7f5] file:px-4 file:py-2 file:font-semibold file:text-[#1a9b8e] hover:file:bg-[#dff3ef]"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-gray-700">Zona habitual</span>
+                      <input
+                        type="text"
+                        value={perfil.zonaHabitual ?? ''}
+                        onChange={(event) => actualizarCampoPerfil('zonaHabitual', event.target.value)}
+                        placeholder="Chamberí"
+                        className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
+                      />
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="mb-2 block text-sm font-medium text-gray-700">Biografía</span>
+                      <textarea
+                        value={perfil.biografia ?? ''}
+                        onChange={(event) => actualizarCampoPerfil('biografia', event.target.value)}
+                        placeholder="Cuéntanos algo sobre ti y tu mascota."
+                        rows={5}
+                        className="w-full resize-y rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
+                      />
+                    </label>
                   </div>
                 </div>
 
@@ -326,17 +309,17 @@ export function PaginaOnboarding() {
                         Tus mascotas
                       </div>
                       <p className="mt-2 text-sm text-gray-600">
-                        Anade una o varias mascotas para dejar la cuenta preparada desde el inicio.
+                        Añade una o varias mascotas para dejar la cuenta preparada desde el inicio.
                       </p>
                     </div>
 
                     <button
                       type="button"
                       onClick={anadirMascota}
-                      className="inline-flex items-center gap-2 rounded-full bg-[#eef7f5] px-4 py-2 text-sm font-semibold text-[#1a9b8e] transition hover:bg-[#dff3ef]"
+                      className="inline-flex items-center gap-2 rounded-full bg-[#eef7f5] px-5 py-3 text-sm font-semibold text-[#1a9b8e] transition hover:bg-[#dff3ef]"
                     >
                       <Plus size={16} />
-                      Anadir otra
+                      Añadir otra
                     </button>
                   </div>
 
@@ -375,7 +358,7 @@ export function PaginaOnboarding() {
                             className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
                           >
                             <option value="" disabled>
-                              Tamano
+                              Tamaño
                             </option>
                             {nivelesTamano.map((tamano) => (
                               <option key={tamano} value={tamano}>
@@ -411,7 +394,7 @@ export function PaginaOnboarding() {
                                     : 'border border-gray-200 bg-white text-gray-800 hover:border-[#1a9b8e]'
                                 }`}
                               >
-                                Sociable: Si
+                                Sociable: Sí
                               </button>
                               <button
                                 type="button"
@@ -424,33 +407,6 @@ export function PaginaOnboarding() {
                               >
                                 Sociable: No
                               </button>
-                            </div>
-                          </div>
-
-                          <input
-                            type="text"
-                            value={mascota.foto ?? ''}
-                            onChange={(event) => actualizarCampoMascota(mascota.id, 'foto', event.target.value)}
-                            placeholder="URL de foto (opcional)"
-                            className="md:col-span-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
-                          />
-                          <div className="md:col-span-2 rounded-3xl border border-gray-100 bg-white p-4">
-                            <div className="flex items-center gap-4">
-                              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl bg-[#eef7f5]">
-                                {mascota.foto ? (
-                                  <img src={mascota.foto} alt={mascota.nombre || 'Mascota'} className="h-full w-full object-cover" />
-                                ) : (
-                                  <PawPrint size={28} className="text-[#1a9b8e]" />
-                                )}
-                              </div>
-                              <div className="flex-1">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(event) => manejarArchivoMascota(mascota.id, event)}
-                                  className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-[#eef7f5] file:px-4 file:py-2 file:font-semibold file:text-[#1a9b8e] hover:file:bg-[#dff3ef]"
-                                />
-                              </div>
                             </div>
                           </div>
                         </div>

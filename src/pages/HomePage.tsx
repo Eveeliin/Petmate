@@ -6,7 +6,6 @@ import { Footer } from '../components/Footer';
 import { Header } from '../components/Header';
 import { HeroSection } from '../components/HeroSection';
 import { MapSection } from '../components/MapSection';
-import { TestimonialsSection } from '../components/TestimonialsSection';
 
 export function PaginaInicio() {
   return (
@@ -15,9 +14,9 @@ export function PaginaInicio() {
       <main>
         <HeroSection />
         <MapSection />
+        <EventsSection />
         <CommunitySection />
         <FeaturesSection />
-        <TestimonialsSection />
       </main>
       <Footer />
     </div>

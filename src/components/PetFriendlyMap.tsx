@@ -1,0 +1,65 @@
+import React from 'react';
+import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
+import { establecimientos, type Establecimiento } from '../data/establecimientos';
+
+type PetFriendlyMapProps = {
+  puntos?: Establecimiento[];
+  altoClase?: string;
+};
+
+const centroMadrid: [number, number] = [40.4168, -3.7038];
+const ContenedorMapa = MapContainer as React.ComponentType<any>;
+const CapaMapa = TileLayer as React.ComponentType<any>;
+const MarcadorCircular = CircleMarker as React.ComponentType<any>;
+
+export function PetFriendlyMap({
+  puntos = establecimientos,
+  altoClase = 'h-[26rem]',
+}: PetFriendlyMapProps) {
+  const puntosValidos = puntos.filter(
+    (establecimiento) =>
+      typeof establecimiento.latitud === 'number' &&
+      Number.isFinite(establecimiento.latitud) &&
+      typeof establecimiento.longitud === 'number' &&
+      Number.isFinite(establecimiento.longitud),
+  );
+
+  return (
+    <div className={`overflow-hidden rounded-3xl border border-gray-200 ${altoClase}`}>
+      <ContenedorMapa center={centroMadrid} zoom={12.5} scrollWheelZoom={false} className="h-full w-full">
+        <CapaMapa
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {puntosValidos.map((establecimiento) => (
+          <MarcadorCircular
+            key={establecimiento.id}
+            center={[establecimiento.latitud, establecimiento.longitud]}
+            pathOptions={{
+              color: '#ffffff',
+              weight: 3,
+              fillColor: establecimiento.color,
+              fillOpacity: 1,
+            }}
+            radius={10}
+          >
+            <Popup>
+              <div className="space-y-3 py-1">
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">{establecimiento.nombre}</h3>
+                  <p className="mt-1 text-sm text-gray-500">{establecimiento.direccion}</p>
+                </div>
+                <span className="inline-flex rounded-full bg-[#eef7f5] px-3 py-1 text-xs font-semibold text-[#1a9b8e]">
+                  {establecimiento.categoria}
+                </span>
+                <p className="text-sm leading-relaxed text-gray-700">{establecimiento.descripcion}</p>
+                <p className="text-sm font-medium text-gray-800">{establecimiento.reglaMascota}</p>
+              </div>
+            </Popup>
+          </MarcadorCircular>
+        ))}
+      </ContenedorMapa>
+    </div>
+  );
+}
