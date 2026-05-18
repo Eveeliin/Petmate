@@ -56,6 +56,6 @@ VITE_SUPABASE_ANON_KEY
 
 La clave pública `anon` de Supabase se gestiona como variable de entorno en desarrollo y en Vercel.
 
-## Nota para el tutor
+## Nota:
 
 El acceso al panel privado de Supabase requiere una cuenta autorizada en el proyecto. Para revisar la aplicación no es necesario acceder al panel de administración; basta con utilizar la URL desplegada y, si procede, una cuenta de prueba.
