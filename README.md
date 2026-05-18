@@ -1,5 +1,8 @@
 Enlace proyecto: https://petmate-phi.vercel.app/
+
 SUPABASE:
+
+https://jgmbozbmrnzzftqafagi.supabase.co
 Nombre: PETMET
 Contraseña: Garypetmet1
 
