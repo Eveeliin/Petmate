@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, MapPin, PawPrint, Plus, Sparkles, UserRound } from 'lucide-react';
+import { ArrowLeft, PawPrint, Plus, Sparkles, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   guardarPerfilUsuario,
@@ -56,8 +56,6 @@ export function PaginaOnboarding() {
         setPerfil({
           nombre: nombreSugerido,
           email: sesionActiva.user.email ?? '',
-          zonaHabitual: '',
-          biografia: '',
           avatar: null,
           mascotas: [crearMascotaVacia()],
           favoritos: [],
@@ -76,7 +74,7 @@ export function PaginaOnboarding() {
     return null;
   }
 
-  const actualizarCampoPerfil = (campo: 'nombre' | 'zonaHabitual' | 'biografia', valor: string) => {
+  const actualizarCampoPerfil = (campo: 'nombre', valor: string) => {
     setPerfil((perfilActual) => (perfilActual ? { ...perfilActual, [campo]: valor } : perfilActual));
   };
 
@@ -153,8 +151,6 @@ export function PaginaOnboarding() {
     const perfilSanitizado: PerfilUsuario = {
       ...perfil,
       nombre: perfil.nombre.trim(),
-      zonaHabitual: perfil.zonaHabitual?.trim() ?? '',
-      biografia: perfil.biografia?.trim() ?? '',
       avatar: perfil.avatar?.trim() ? perfil.avatar.trim() : null,
       mascotas: hayMascotaValida
         ? perfil.mascotas
@@ -216,7 +212,7 @@ export function PaginaOnboarding() {
                 <div className="rounded-3xl bg-white/15 p-6 backdrop-blur">
                   <div className="text-sm font-bold uppercase tracking-[0.24em] text-white/70">Paso 1</div>
                   <p className="mt-3 text-sm leading-relaxed text-white/90">
-                    Cuéntanos quién eres y en qué zona te mueves habitualmente.
+                    Confirma tus datos principales para identificar tu cuenta.
                   </p>
                 </div>
                 <div className="rounded-3xl bg-white/15 p-6 backdrop-blur">
@@ -251,12 +247,12 @@ export function PaginaOnboarding() {
               <form onSubmit={manejarEnvio} className="mt-8 space-y-8">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.24em] text-[#ff8c42]">
-                    <MapPin size={16} />
+                    <UserRound size={16} />
                     Tus datos
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <label className="block md:col-span-2">
+                    <label className="block">
                       <span className="mb-2 block text-sm font-medium text-gray-700">Nombre visible</span>
                       <input
                         type="text"
@@ -274,28 +270,6 @@ export function PaginaOnboarding() {
                         value={perfil.email}
                         disabled
                         className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500 outline-none"
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-gray-700">Zona habitual</span>
-                      <input
-                        type="text"
-                        value={perfil.zonaHabitual ?? ''}
-                        onChange={(event) => actualizarCampoPerfil('zonaHabitual', event.target.value)}
-                        placeholder="Chamberí"
-                        className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
-                      />
-                    </label>
-
-                    <label className="block md:col-span-2">
-                      <span className="mb-2 block text-sm font-medium text-gray-700">Biografía</span>
-                      <textarea
-                        value={perfil.biografia ?? ''}
-                        onChange={(event) => actualizarCampoPerfil('biografia', event.target.value)}
-                        placeholder="Cuéntanos algo sobre ti y tu mascota."
-                        rows={5}
-                        className="w-full resize-y rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1a9b8e]"
                       />
                     </label>
                   </div>

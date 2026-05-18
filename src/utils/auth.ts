@@ -49,8 +49,6 @@ export type EventoCompleto = {
 export type PerfilUsuario = {
   nombre: string;
   email: string;
-  zonaHabitual?: string;
-  biografia?: string;
   avatar?: string | null;
   mascotas: PerfilMascota[];
   favoritos: LugarFavorito[];
@@ -250,8 +248,6 @@ export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
   return {
     nombre: perfil.nombre,
     email: perfil.email,
-    zonaHabitual: '',
-    biografia: '',
     avatar: perfil.avatar ?? null,
     mascotas: (mascotas ?? []).map((m) => ({
       id: m.id,
